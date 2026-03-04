@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NT Financas - Sistema Seguro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+        }
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .income-row {
+            background-color: #ecfdf5;
+            border-left: 4px solid #10b981;
+        }
+        .paid-row {
+            background-color: #f1f5f9;
+            opacity: 0.7;
+        }
+        .modal-overlay {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+        }
+        #auth-screen {
+            background: radial-gradient(circle at top right, #4f46e5, #1e293b);
+        }
+        .lock-screen-gradient {
+            background: radial-gradient(circle at bottom left, #1e293b, #0f172a);
+        }
+        .bank-badge {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .final-balance-card {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- NOTIFICAÇÕES (TOAST) -->
+    <div id="toast" class="fixed bottom-8 right-8 bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl transform translate-y-32 transition-transform duration-300 pointer-events-none opacity-0 z-[5000] flex items-center gap-3">
+        <div id="toast-icon" class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+        <span id="toast-message" class="text-sm font-medium"></span>
+    </div>
+
+    <!-- ECRÃ DE AUTENTICAÇÃO -->
+    <div id="auth-screen" class="fixed inset-0 z-[4000] flex items-center justify-center p-4">
+        <div class="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-white/20">
+            <div class="text-center mb-10">
+                <div class="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <img src="NT.png?v=1" alt="Logo NT" class="w-12 h-12 object-contain" onerror="this.src='https://cdn-icons-png.flaticon.com/512/10149/10149363.png'">
+                </div>
+                <h2 class="text-3xl font-bold text-slate-900 tracking-tight" id="auth-title">NT Finanças</h2>
+                <p class="text-slate-500 text-sm mt-2" id="auth-subtitle">Inicia sessão para aceder ao teu painel.</p>
+            </div>
+
+            <div class="space-y-5">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1 text-left">E-mail de utilizador</label>
+                    <input type="email" id="auth-email" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="exemplo@email.com">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1 text-left">Palavra-passe</label>
+                    <input type="password" id="auth-password" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="••••••••">
+                </div>
+                <button id="auth-main-btn" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl shadow-indigo-200 active:scale-[0.98]">Entrar no Sistema</button>
+                
+                <div class="text-center pt-6 border-t border-slate-100">
+                    <button id="auth-toggle-btn" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">Ainda não tens conta? Regista-te agora</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ECRÃ DE BLOQUEIO RÁPIDO (PIN) -->
+    <div id="app-lock-screen" class="fixed inset-0 z-[3000] hidden flex items-center justify-center lock-screen-gradient p-4">
+        <div class="bg-white/5 backdrop-blur-2xl p-10 rounded-[3rem] shadow-2xl w-full max-w-sm border border-white/10 text-center">
+            <div id="lock-avatar-circle" class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-3xl font-bold shadow-2xl border-4 border-white/20 uppercase">?</div>
+            <h2 class="text-2xl font-bold text-white mb-2" id="lock-user-name">Bem-vindo</h2>
+            <p class="text-slate-400 text-sm mb-10">Introduz o teu código PIN de segurança.</p>
+            <input type="password" id="lock-password-input" maxlength="8" class="w-full bg-white/10 border border-white/10 rounded-2xl p-5 text-white text-center text-3xl font-bold tracking-[1em] outline-none focus:ring-2 focus:ring-white mb-6" placeholder="••••">
+            <button id="unlock-btn" class="w-full py-5 bg-white text-slate-900 font-bold rounded-2xl hover:bg-slate-100 transition shadow-xl">Desbloquear Painel</button>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <div id="main-interface" class="hidden">
+        <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-20 items-center">
+                    <div class="flex items-center gap-3">
+                        <img src="NT.png?v=1" alt="Logo NT" class="w-10 h-10 object-contain" onerror="this.src='https://cdn-icons-png.flaticon.com/512/10149/10149363.png'">
+                        <span class="text-xl font-bold tracking-tight text-slate-900">NT<span class="text-indigo-600">Finanças</span></span>
+                    </div>
+                    
+                    <div class="flex items-center gap-6">
+                        <div id="sync-status" class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
+                            <span id="sync-indicator" class="w-2 h-2 bg-slate-300 rounded-full"></span>
+                            <span id="sync-status-text">Ollama Local</span>
+                        </div>
+
+                        <select id="month-filter" class="bg-slate-50 px-4 py-2 rounded-xl font-bold text-slate-700 focus:outline-none border border-slate-200 text-sm"></select>
+                        
+                        <div class="flex items-center gap-3 pl-6 border-l border-slate-100">
+                            <div class="flex flex-col items-end leading-tight">
+                                <span id="nav-user-name" class="text-xs font-bold text-slate-900 uppercase tracking-tighter">Utilizador</span>
+                                <span id="user-id-display" class="text-[9px] text-slate-400 font-mono">ID: ---</span>
+                            </div>
+                            <button onclick="openProfileModal()" id="nav-avatar" class="w-11 h-11 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-lg hover:rotate-3 transition-transform">U</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main id="app-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 opacity-0 pointer-events-none transition-opacity duration-500">
+            <!-- Dashboard Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 card-shadow text-center sm:text-left">
+                    <h3 class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">Saldo Atual</h3>
+                    <p id="total-balance" class="text-2xl font-bold text-slate-900">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 card-shadow text-center sm:text-left">
+                    <h3 class="text-emerald-500 text-[10px] font-bold uppercase tracking-widest mb-2">Receitas Mês</h3>
+                    <p id="total-income" class="text-2xl font-bold text-emerald-600">R$ 0,00</p>
+                </div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 card-shadow text-center sm:text-left">
+                    <h3 class="text-rose-500 text-[10px] font-bold uppercase tracking-widest mb-2">Fatura Cartão</h3>
+                    <p id="total-card" class="text-2xl font-bold text-rose-700">R$ 0,00</p>
+                </div>
+                <div class="final-balance-card p-6 rounded-3xl text-white shadow-2xl shadow-indigo-200 text-center sm:text-left">
+                    <h3 class="text-indigo-200 text-[10px] font-bold uppercase tracking-widest mb-2">Saldo Previsto</h3>
+                    <p id="total-estimated-final" class="text-2xl font-bold">R$ 0,00</p>
+                </div>
+                <div class="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 card-shadow text-center sm:text-left">
+                    <h3 class="text-indigo-600 text-[10px] font-bold uppercase tracking-widest mb-2">A Pagar</h3>
+                    <p id="total-pending" class="text-2xl font-bold text-indigo-700">R$ 0,00</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                <div class="lg:col-span-2 space-y-8">
+                    <!-- IA SECTION -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow relative overflow-hidden text-left">
+                        <div class="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                            <span class="text-8xl font-black italic tracking-tighter">AI</span>
+                        </div>
+                        <h2 class="text-xl font-bold flex items-center gap-3 text-slate-800 mb-6">
+                            <span class="p-2 bg-indigo-100 rounded-2xl text-indigo-600">🦙</span>
+                            Gestor Mágico Local
+                        </h2>
+                        <div class="relative group">
+                            <input type="text" id="ai-input" placeholder="O que queres registar? Ex: 'Mercado 150 no débito Nubank'..." 
+                                   class="w-full pl-6 pr-40 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] focus:border-indigo-500 outline-none text-sm transition-all shadow-inner">
+                            <button id="ai-submit" class="absolute right-2 top-2 bottom-2 bg-indigo-600 text-white px-8 rounded-2xl font-bold text-xs hover:bg-indigo-700 transition flex items-center gap-2">
+                                <div id="ai-loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+                                <span>Processar</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Manual Form -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow text-left">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-[0.2em] text-left">Entrada Manual</h3>
+                        <form id="finance-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                            <input type="text" id="desc" placeholder="Descrição do item" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
+                            <input type="number" step="0.01" id="amount" placeholder="Valor (R$)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
+                            <input type="text" id="bank-input" placeholder="Banco (Ex: Nubank)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                            <select id="method" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none">
+                                <option value="Dinheiro/Pix">Dinheiro/Pix</option>
+                                <option value="Cartão Débito">Cartão Débito</option>
+                                <option value="Cartão">Cartão Crédito</option>
+                                <option value="Boleto">Boleto</option>
+                            </select>
+                            <select id="category" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none">
+                                <option value="Receita">Receita</option>
+                                <option value="Alimentação">Alimentação</option>
+                                <option value="Lazer">Lazer</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                            <button type="submit" class="bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition active:scale-95 shadow-xl sm:col-span-2 lg:col-span-1">Guardar</button>
+                        </form>
+                    </div>
+
+                    <!-- History -->
+                    <div class="bg-white rounded-[2.5rem] border border-slate-200 card-shadow overflow-hidden text-left">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h2 class="text-sm font-bold text-slate-600 uppercase tracking-widest">Histórico: <span id="display-month" class="text-indigo-600">Janeiro</span></h2>
+                            <div class="flex gap-2">
+                                <button onclick="generateMonthSummary()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-lg shadow-indigo-100 uppercase">Resumo Mês</button>
+                                <button onclick="openConfirmModal('clearAll')" class="bg-rose-50 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition hover:bg-rose-100">Limpar</button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="text-[10px] text-slate-400 uppercase font-bold border-b border-slate-50">
+                                    <tr>
+                                        <th class="px-8 py-5">Estado</th>
+                                        <th class="px-8 py-5">Descrição / Banco</th>
+                                        <th class="px-8 py-5 text-center">Meio</th>
+                                        <th class="px-8 py-5 text-right">Valor</th>
+                                        <th class="px-8 py-5 text-center">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transaction-list" class="divide-y divide-slate-50 text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="space-y-8">
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow text-center">
+                        <h2 class="text-xs font-bold text-slate-400 uppercase mb-8 tracking-[0.2em]">Fluxo de Cartão</h2>
+                        <div class="h-64"><canvas id="projectionChart"></canvas></div>
+                        <button onclick="openImportModal()" class="w-full mt-8 py-4 bg-indigo-50 text-indigo-600 font-bold rounded-2xl border-2 border-dashed border-indigo-200 hover:bg-indigo-100 transition text-[10px] uppercase tracking-widest">
+                            Importar Extrato Bancário
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAIS -->
+    <div id="profile-modal" class="fixed inset-0 z-[500] hidden flex items-center justify-center p-4 modal-overlay text-center">
+        <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-10 shadow-2xl border border-slate-100">
+            <h3 class="text-2xl font-bold text-slate-900 mb-8 tracking-tight">O Teu Perfil</h3>
+            <div class="space-y-5 text-left">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome de Exibição</label>
+                    <input type="text" id="profile-name-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Senha PIN (Lock Screen)</label>
+                    <input type="password" id="profile-pass-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold" placeholder="Vazio para desativar">
+                </div>
+            </div>
+            <div class="flex flex-col gap-3 mt-10">
+                <button onclick="saveProfile()" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl shadow-indigo-100">Salvar Alterações</button>
+                <button onclick="handleLogout()" class="w-full py-4 bg-rose-50 text-rose-600 font-bold rounded-2xl hover:bg-rose-100 transition">Terminar Sessão</button>
+                <button onclick="closeProfileModal()" class="w-full py-4 text-slate-400 font-bold text-sm transition hover:text-slate-600">Fechar Janela</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="import-modal" class="fixed inset-0 z-[500] hidden flex items-center justify-center p-4 modal-overlay text-center">
+        <div class="bg-white rounded-[3rem] max-w-lg w-full p-10 shadow-2xl border border-slate-100 leading-relaxed">
+            <h3 class="text-2xl font-bold text-slate-900 mb-2 uppercase">Importador IA</h3>
+            <p class="text-slate-400 text-xs mb-8">O Ollama processará todos os itens localmente.</p>
+            <textarea id="import-text" rows="10" class="w-full p-6 bg-slate-50 border border-slate-200 rounded-[1.5rem] mb-6 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="Copia aqui o texto do teu extrato..."></textarea>
+            <div class="flex gap-4">
+                <button onclick="closeImportModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl transition hover:bg-slate-200">Cancelar</button>
+                <button id="import-process-btn" onclick="triggerImport()" class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-2xl transition shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 leading-none">
+                    <div id="import-loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+                    Sincronizar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4 modal-overlay text-center">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-8 shadow-2xl border border-slate-100">
+            <h3 class="text-xl font-bold mb-4 text-slate-900" id="modal-title">Confirmar</h3>
+            <p class="text-sm text-slate-500 mb-8" id="modal-message"></p>
+            <div id="modal-buttons" class="flex flex-col gap-2"></div>
+        </div>
+    </div>
+
+    <div id="summary-modal" class="fixed inset-0 z-[300] hidden flex items-center justify-center p-4 modal-overlay text-center">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-10 shadow-2xl max-h-[85vh] overflow-y-auto border border-slate-100">
+            <div class="flex justify-between items-center mb-8 text-left">
+                <h3 class="text-2xl font-bold text-slate-900">Resumo do Mês</h3>
+                <button onclick="document.getElementById('summary-modal').classList.add('hidden')" class="text-slate-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="summary-content" class="bg-slate-50 p-8 rounded-3xl font-mono text-xs whitespace-pre-wrap text-slate-700 border border-slate-100 mb-8 text-left leading-relaxed"></div>
+            <button onclick="copySummaryToClipboard()" class="w-full py-5 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl">Copiar para WhatsApp</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, setDoc, writeBatch, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBI_D6tIFU5KzjY0WlgEvNPi3wFLqrvu0c",
+            authDomain: "finance-41b6c.firebaseapp.com",
+            projectId: "finance-41b6c",
+            storageBucket: "finance-41b6c.firebasestorage.app",
+            messagingSenderId: "949889931944",
+            appId: "1:949889931944:web:51a0b62bda350b2be7c09d",
+            measurementId: "G-FTCB5773XL"
+        };
+        
+        const ollamaConfig = {
+            baseUrl: "http://127.0.0.1:11434/api/chat",
+            model: "llama3"
+        };
+
+        const appId = 'bruno-financas-v3-auth';
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let transactions = [];
+        let spendingGoal = 0;
+        let chart = null;
+        let profilePassword = "";
+        let authMode = 'login';
+        let unsubscribeTrans = null;
+        let unsubscribeSettings = null;
+
+        const currentMonthKey = new Date().toISOString().slice(0, 7);
+        const monthFilter = document.getElementById('month-filter');
+
+        // --- TOAST UTILS ---
+        window.showToast = (msg) => {
+            const t = document.getElementById('toast');
+            const tm = document.getElementById('toast-message');
+            if (t && tm) {
+                tm.innerText = msg;
+                t.classList.remove('translate-y-32', 'opacity-0');
+                setTimeout(() => { if (t) t.classList.add('translate-y-32', 'opacity-0'); }, 7000);
+            }
+        };
+
+        // --- AUTH LOGIC ---
+        const authMainBtn = document.getElementById('auth-main-btn');
+        const authToggleBtn = document.getElementById('auth-toggle-btn');
+
+        if (authToggleBtn) {
+            authToggleBtn.onclick = () => {
+                authMode = authMode === 'login' ? 'register' : 'login';
+                document.getElementById('auth-title').innerText = authMode === 'login' ? 'NT Finanças' : 'Criar Conta';
+                document.getElementById('auth-subtitle').innerText = authMode === 'login' ? 'Inicia sessão para aceder ao teu painel.' : 'Cria o teu perfil para começar.';
+                authMainBtn.innerText = authMode === 'login' ? 'Entrar no Sistema' : 'Registar Conta';
+                authToggleBtn.innerText = authMode === 'login' ? 'Ainda não tens conta? Regista-te agora' : 'Já tens conta? Entra aqui';
+            };
+        }
+
+        if (authMainBtn) {
+            authMainBtn.onclick = async () => {
+                const eInput = document.getElementById('auth-email');
+                const pInput = document.getElementById('auth-password');
+                const e = eInput?.value?.trim();
+                const p = pInput?.value?.trim();
+                
+                if(!e || !p) return showToast("Por favor, preenche todos os campos!");
+                
+                try {
+                    if(authMode === 'login') {
+                        await signInWithEmailAndPassword(auth, e, p);
+                    } else {
+                        await createUserWithEmailAndPassword(auth, e, p);
+                        showToast("Conta criada com sucesso!");
+                    }
+                } catch (err) { 
+                    console.error("Firebase Auth Error:", err.code);
+                    if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+                        showToast("Dados incorretos. Verifica o e-mail ou a senha.");
+                    } else if (err.code === 'auth/email-already-in-use') {
+                        showToast("E-mail já registado. Tenta fazer login.");
+                    } else {
+                        showToast("Falha na autenticação: " + err.code);
+                    }
+                }
+            };
+        }
+
+        window.handleLogout = () => signOut(auth).then(() => window.location.reload());
+
+        onAuthStateChanged(auth, async (u) => {
+            if (u) {
+                currentUser = u;
+                const authScr = document.getElementById('auth-screen');
+                if (authScr) authScr.classList.add('hidden');
+                const idDisplay = document.getElementById('user-id-display');
+                if (idDisplay) idDisplay.innerText = `ID: ${u.uid.slice(0,8)}`;
+                await loadProfilePrefs(u.uid);
+                startSync();
+            } else {
+                const authScr = document.getElementById('auth-screen');
+                if (authScr) authScr.classList.remove('hidden');
+                const mainInt = document.getElementById('main-interface');
+                if (mainInt) mainInt.classList.add('hidden');
+            }
+        });
+
+        const loadProfilePrefs = async (uid) => {
+            try {
+                const snap = await getDoc(doc(db, 'artifacts', appId, 'users', uid, 'settings', 'prefs'));
+                const avatar = document.getElementById('nav-avatar');
+                const navName = document.getElementById('nav-user-name');
+                const lockAvatar = document.getElementById('lock-avatar-circle');
+                
+                if (snap.exists()) {
+                    const d = snap.data();
+                    profilePassword = d.appPassword || "";
+                    if (navName) navName.innerText = d.userName || "Bruno";
+                    if (avatar) avatar.innerText = (d.userName || "B").charAt(0).toUpperCase();
+                    if (lockAvatar) lockAvatar.innerText = (d.userName || "B").charAt(0).toUpperCase();
+                    
+                    if (profilePassword !== "") {
+                        const lockScreen = document.getElementById('app-lock-screen');
+                        const mainInterface = document.getElementById('main-interface');
+                        if (lockScreen) lockScreen.classList.remove('hidden');
+                        if (mainInterface) mainInterface.classList.add('hidden');
+                        const passInput = document.getElementById('lock-password-input');
+                        if (passInput) passInput.focus();
+                    } else {
+                        showMainApp();
+                    }
+                } else {
+                    showMainApp();
+                }
+            } catch (err) {
+                console.error("Erro ao carregar preferências:", err);
+                showMainApp();
+            }
+        };
+
+        const showMainApp = () => {
+            const lockScreen = document.getElementById('app-lock-screen');
+            const mainInterface = document.getElementById('main-interface');
+            const appContent = document.getElementById('app-content');
+            
+            if (lockScreen) lockScreen.classList.add('hidden');
+            if (mainInterface) mainInterface.classList.remove('hidden');
+            if (appContent) {
+                appContent.classList.remove('opacity-0', 'pointer-events-none');
+            }
+            refreshUI();
+        };
+
+        const unlockBtn = document.getElementById('unlock-btn');
+        if (unlockBtn) {
+            unlockBtn.onclick = () => {
+                const inputEl = document.getElementById('lock-password-input');
+                const input = inputEl?.value;
+                if (input === profilePassword) {
+                    showMainApp();
+                } else {
+                    showToast("PIN incorreto!");
+                    if (inputEl) inputEl.value = "";
+                }
+            };
+        }
+
+        window.saveProfile = async () => {
+            const nameEl = document.getElementById('profile-name-input');
+            const passEl = document.getElementById('profile-pass-input');
+            const n = nameEl?.value?.trim();
+            const p = passEl?.value?.trim();
+            if (!currentUser) return;
+            await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'prefs'), { 
+                userName: n || "Bruno", 
+                appPassword: p || ""
+            }, { merge: true });
+            showToast("Perfil guardado!");
+            loadProfilePrefs(currentUser.uid);
+            closeProfileModal();
+        };
+
+        // --- CORE DB ---
+        const startSync = () => {
+            if(!currentUser) return;
+            if(unsubscribeTrans) unsubscribeTrans();
+            if(unsubscribeSettings) unsubscribeSettings();
+
+            unsubscribeTrans = onSnapshot(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions'), (snap) => {
+                transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                refreshUI();
+            });
+            unsubscribeSettings = onSnapshot(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'prefs'), (d) => {
+                spendingGoal = d.exists() ? (d.data().goal || 0) : 0;
+                refreshUI();
+            });
+        };
+
+        window.addTransactionData = async (desc, amount, category, installments = 1, method = "Dinheiro/Pix", dateKey = currentMonthKey, bank = "") => {
+            if (!currentUser) return;
+            const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions');
+            const part = amount / installments;
+            for (let i = 0; i < installments; i++) {
+                const isPaid = (method === "Dinheiro/Pix" || method === "Cartão Débito" || category === "Receita");
+                await addDoc(ref, { desc: installments > 1 ? `${desc} (${i+1}/${installments})` : desc, amount: part, category, method, bank, monthKey: dateKey, paid: isPaid, creator: currentUser.uid, createdAt: new Date().toISOString() });
+            }
+        };
+
+        window.togglePaid = async (id) => {
+            if (!currentUser) return;
+            const item = transactions.find(t => t.id === id);
+            if (!item) return;
+            await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions', id), { paid: !item.paid });
+        };
+        window.dbDelete = async (id) => {
+            if (!currentUser) return;
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions', id));
+        };
+        window.dbClearAll = async () => {
+            if (!currentUser) return;
+            const batch = writeBatch(db);
+            transactions.forEach(t => batch.delete(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions', t.id)));
+            await batch.commit();
+        };
+
+        // --- IA OLLAMA (CORREÇÃO DE DIAGNÓSTICO) ---
+        const processAI = async (text, isImport = false) => {
+            if (!text) return;
+            const loader = isImport ? document.getElementById('import-loader') : document.getElementById('ai-loader');
+            const btn = isImport ? document.getElementById('import-process-btn') : document.getElementById('ai-submit');
+            if (loader) loader.classList.remove('hidden'); 
+            if (btn) btn.disabled = true;
+
+            const prompt = `Extrai dados financeiros e retorna apenas JSON válido. Identifica Banco, Item, Valor. Categoria "Receita" se for ganho. Texto: "${text}"`;
+
+            try {
+                // Tenta ligar ao Ollama
+                const response = await fetch(ollamaConfig.baseUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: ollamaConfig.model,
+                        messages: [{ role: 'user', content: prompt }],
+                        stream: false,
+                        format: 'json'
+                    })
+                });
+
+                if (!response.ok) throw new Error("O servidor local Ollama não respondeu.");
+
+                const res = await response.json();
+                const data = JSON.parse(res.message.content);
+
+                if (data.items) {
+                    for (const i of data.items) {
+                        await addTransactionData(i.desc, parseFloat(i.total || i.valor || i.amount || 0), i.category || "Outros", 1, i.method || "Dinheiro/Pix", currentMonthKey, i.bank || "");
+                    }
+                }
+                showToast("Processado com sucesso!");
+                if(isImport) closeImportModal();
+                const inputEl = document.getElementById('ai-input');
+                if (inputEl) inputEl.value = '';
+                
+                const syncInd = document.getElementById('sync-indicator');
+                const syncTxt = document.getElementById('sync-status-text');
+                if (syncInd) syncInd.className = "w-2 h-2 bg-emerald-500 rounded-full animate-pulse";
+                if (syncTxt) {
+                    syncTxt.innerText = "Ollama Online";
+                    syncTxt.parentElement.className = "flex items-center gap-2 text-[10px] font-bold text-emerald-500 uppercase bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100";
+                }
+
+            } catch (e) {
+                console.error("Erro na ligação ao Ollama:", e);
+                showToast("Erro de Ligação: Corre '$env:OLLAMA_ORIGINS=\"*\"; ollama serve' no terminal.");
+                
+                const syncInd = document.getElementById('sync-indicator');
+                const syncTxt = document.getElementById('sync-status-text');
+                if (syncInd) syncInd.className = "w-2 h-2 bg-rose-500 rounded-full";
+                if (syncTxt) {
+                    syncTxt.innerText = "Ollama Offline";
+                    syncTxt.parentElement.className = "flex items-center gap-2 text-[10px] font-bold text-rose-500 uppercase bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100";
+                }
+            } finally { 
+                if (loader) loader.classList.add('hidden'); 
+                if (btn) btn.disabled = false; 
+            }
+        };
+
+        const refreshUI = () => {
+            if (!monthFilter || !currentUser) return;
+            const currentM = monthFilter.value;
+            const dispMonth = document.getElementById('display-month');
+            if (dispMonth) dispMonth.innerText = monthFilter.options[monthFilter.selectedIndex]?.text || "";
+            
+            const filtered = transactions.filter(t => t.monthKey === currentM);
+            const income = filtered.filter(t => t.category === 'Receita').reduce((a,b) => a + b.amount, 0);
+            const cardDebt = filtered.filter(t => t.method === 'Cartão').reduce((a,b) => a + b.amount, 0);
+            const instantExit = filtered.filter(t => (t.method !== 'Cartão' && (t.method !== 'Boleto' || t.paid)) && t.category !== 'Receita').reduce((a,b) => a + b.amount, 0);
+            const pending = filtered.filter(t => t.category !== 'Receita' && !t.paid).reduce((a,b) => a + b.amount, 0);
+
+            const formatCurrency = (v) => v.toLocaleString('pt-pt', { style: 'currency', currency: 'BRL' });
+
+            const elBal = document.getElementById('total-balance');
+            const elInc = document.getElementById('total-income');
+            const elCrd = document.getElementById('total-card');
+            const elPnd = document.getElementById('total-pending');
+            const elEst = document.getElementById('total-estimated-final');
+
+            if (elBal) elBal.innerText = formatCurrency(income - instantExit);
+            if (elInc) elInc.innerText = formatCurrency(income);
+            if (elCrd) elCrd.innerText = formatCurrency(cardDebt);
+            if (elPnd) elPnd.innerText = formatCurrency(pending);
+            
+            const finalPrev = income - instantExit - pending;
+            if (elEst) {
+                elEst.innerText = formatCurrency(finalPrev);
+                elEst.className = `text-2xl font-bold ${finalPrev < 0 ? 'text-rose-300' : 'text-white'}`;
+            }
+
+            renderList(filtered);
+            updateCharts();
+        };
+
+        const renderList = (list) => {
+            const tbody = document.getElementById('transaction-list');
+            if(!tbody) return;
+            const formatCurrency = (v) => v.toLocaleString('pt-pt', { style: 'currency', currency: 'BRL' });
+
+            tbody.innerHTML = list.length ? '' : `<tr><td colspan="5" class="p-10 text-center text-slate-400 italic font-medium">Sem movimentos este mês.</td></tr>`;
+            list.sort((a,b) => a.paid - b.paid).forEach(t => {
+                const isInc = t.category === 'Receita';
+                const tr = document.createElement('tr');
+                tr.className = `transition-all ${isInc ? 'income-row' : (t.paid ? 'paid-row' : 'hover:bg-slate-50/50')}`;
+                tr.innerHTML = `
+                    <td class="px-8 py-5"><button onclick="togglePaid('${t.id}')" class="w-6 h-6 rounded-full border-2 ${t.paid ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200'} flex items-center justify-center transition-all"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg></button></td>
+                    <td class="px-8 py-5"><div class="text-sm font-bold ${(!isInc && t.paid) ? 'text-slate-400 line-through' : 'text-slate-800'}">${t.desc}</div><div class="bank-badge mt-1">${t.bank || 'GERAL'}</div></td>
+                    <td class="px-8 py-5 text-center uppercase text-[10px] font-bold text-slate-500">${t.method}</td>
+                    <td class="px-8 py-5 text-right font-bold ${isInc ? 'text-emerald-600' : 'text-slate-900'}">${isInc ? '+' : ''} ${formatCurrency(t.amount)}</td>
+                    <td class="px-8 py-5 text-center"><button onclick="openConfirmModal('delete', '${t.id}')" class="text-slate-300 hover:text-rose-500 transition-colors"><svg class="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        };
+
+        const updateCharts = () => {
+            if (!chart) return;
+            const months = Array.from(monthFilter.options).map(o => o.value).filter(v => v >= currentMonthKey).slice(0, 6);
+            const vals = months.map(m => transactions.filter(t => t.monthKey === m && t.method === 'Cartão').reduce((a,b) => a + b.amount, 0));
+            chart.data.labels = months.map(m => m.split('-')[1] + '/' + m.split('-')[0].slice(2));
+            chart.data.datasets[0].data = vals;
+            chart.update();
+        };
+
+        // --- GLOBAL ACTIONS ---
+        window.openProfileModal = () => {
+            const modal = document.getElementById('profile-modal');
+            if (modal) modal.classList.remove('hidden');
+        };
+        window.closeProfileModal = () => {
+            const modal = document.getElementById('profile-modal');
+            if (modal) modal.classList.add('hidden');
+        };
+        window.openImportModal = () => {
+            const modal = document.getElementById('import-modal');
+            if (modal) modal.classList.remove('hidden');
+        };
+        window.closeImportModal = () => {
+            const modal = document.getElementById('import-modal');
+            if (modal) modal.classList.add('hidden');
+        };
+        window.triggerImport = () => {
+            const textEl = document.getElementById('import-text');
+            if (textEl && textEl.value) processAI(textEl.value, true);
+        };
+        window.generateMonthSummary = () => {
+            const modal = document.getElementById('summary-modal');
+            if (modal) modal.classList.remove('hidden');
+        };
+        window.copySummaryToClipboard = () => {
+            const contentEl = document.getElementById('summary-content');
+            if (contentEl) {
+                const content = contentEl.innerText;
+                navigator.clipboard.writeText(content).then(() => showToast("Copiado com sucesso!"));
+            }
+        };
+
+        const aiSubmitBtn = document.getElementById('ai-submit');
+        if (aiSubmitBtn) {
+            aiSubmitBtn.onclick = () => {
+                const inputEl = document.getElementById('ai-input');
+                if (inputEl && inputEl.value) processAI(inputEl.value);
+            };
+        }
+        
+        const financeForm = document.getElementById('finance-form');
+        if (financeForm) {
+            financeForm.onsubmit = (e) => {
+                e.preventDefault();
+                const desc = document.getElementById('desc')?.value;
+                const amount = parseFloat(document.getElementById('amount')?.value || 0);
+                const cat = document.getElementById('category')?.value;
+                const meth = document.getElementById('method')?.value;
+                const bank = document.getElementById('bank-input')?.value;
+                
+                if (desc && amount) {
+                    addTransactionData(desc, amount, cat, 1, meth, currentMonthKey, bank);
+                    financeForm.reset();
+                }
+            };
+        }
+
+        window.openConfirmModal = (type, id) => {
+            const m = document.getElementById('confirm-modal');
+            const btns = document.getElementById('modal-buttons'); 
+            if (!btns || !m) return;
+            btns.innerHTML = '';
+            document.getElementById('modal-title').innerText = "Confirmar";
+            document.getElementById('modal-message').innerText = "Desejas apagar este registo?";
+            const b1 = document.createElement('button'); b1.innerText = "Sim, eliminar"; b1.className = "w-full py-4 bg-rose-600 text-white font-bold rounded-2xl transition hover:bg-rose-700";
+            b1.onclick = () => { dbDelete(id); m.classList.add('hidden'); };
+            const b2 = document.createElement('button'); b2.innerText = "Cancelar"; b2.className = "w-full py-4 bg-slate-100 font-bold rounded-2xl transition hover:bg-slate-200";
+            b2.onclick = () => m.classList.add('hidden');
+            btns.appendChild(b1); btns.appendChild(b2);
+            m.classList.remove('hidden');
+        };
+
+        window.onload = () => {
+            const now = new Date();
+            if (monthFilter) {
+                for (let i = -2; i <= 24; i++) {
+                    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                    const key = d.toISOString().slice(0, 7);
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.selected = (key === currentMonthKey);
+                    opt.innerText = d.toLocaleDateString('pt-pt', { month: 'long', year: 'numeric' });
+                    monthFilter.appendChild(opt);
+                }
+                monthFilter.onchange = refreshUI;
+            }
+            const canvas = document.getElementById('projectionChart');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                chart = new Chart(ctx, { type: 'bar', data: { labels: [], datasets: [{ label: 'Cartão R$', data: [], backgroundColor: '#6366f1', borderRadius: 12 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } } } });
+            }
+        };
+    </script>
+</body>
+</html>
