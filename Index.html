@@ -6,47 +6,7 @@
     <title>NT Financas - Sistema Seguro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-            overflow-x: hidden;
-        }
-        .card-shadow {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .income-row {
-            background-color: #ecfdf5;
-            border-left: 4px solid #10b981;
-        }
-        .paid-row {
-            background-color: #f1f5f9;
-            opacity: 0.7;
-        }
-        .modal-overlay {
-            background-color: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(8px);
-        }
-        #auth-screen {
-            background: radial-gradient(circle at top right, #4f46e5, #1e293b);
-        }
-        .lock-screen-gradient {
-            background: radial-gradient(circle at bottom left, #1e293b, #0f172a);
-        }
-        .bank-badge {
-            background-color: #f1f5f9;
-            color: #475569;
-            font-size: 9px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        .final-balance-card {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        }
-    </style>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="text-slate-800">
 
@@ -371,7 +331,9 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
+    <script type="module" src="js/app.js"></script>
+    <!-- REMOVIDO: lógica inline migrada para js/app.js (padrão MVC) -->
+    <!-- Firebase SDK (legado - manter para referência)
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -1071,6 +1033,6 @@
             }
         };
 
-    </script>
+    </script> -->
 </body>
 </html>
