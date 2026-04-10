@@ -126,6 +126,16 @@
             </div>
         </nav>
 
+        <!-- TAB DE NAVEGAÇÃO -->
+        <div class="bg-white border-b border-slate-100 sticky top-20 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex gap-1 py-2">
+                    <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-indigo-600 text-white shadow-sm transition-all">Painel</button>
+                    <button onclick="switchTab('clients')" id="tab-clients" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-100 transition-all">Clientes</button>
+                </div>
+            </div>
+        </div>
+
         <main id="app-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 opacity-0 pointer-events-none transition-opacity duration-500">
             <!-- Dashboard Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
@@ -233,6 +243,52 @@
                 </div>
             </div>
         </main>
+
+        <!-- SEÇÃO DE CLIENTES / FORNECEDORES -->
+        <section id="clients-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <!-- Formulário de cadastro -->
+            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow text-left mb-8">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-[0.2em]">Novo Cliente / Fornecedor</h3>
+                <form id="client-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <input type="text" id="client-name" placeholder="Nome completo" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
+                    <input type="text" id="client-doc" placeholder="CPF (000.000.000-00) ou CNPJ (00.000.000/0000-00)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
+                    <select id="client-type" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none">
+                        <option value="Cliente">Cliente</option>
+                        <option value="Fornecedor">Fornecedor</option>
+                        <option value="Ambos">Ambos</option>
+                    </select>
+                    <input type="email" id="client-email" placeholder="E-mail (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                    <input type="text" id="client-phone" placeholder="Telefone (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                    <button type="submit" class="bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition active:scale-95 shadow-xl">Guardar</button>
+                </form>
+            </div>
+
+            <!-- Grid de Clientes -->
+            <div class="bg-white rounded-[2.5rem] border border-slate-200 card-shadow overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex flex-wrap gap-4 justify-between items-center bg-slate-50/50">
+                    <h2 class="text-sm font-bold text-slate-600 uppercase tracking-widest">
+                        Clientes / Fornecedores <span id="clients-count" class="text-indigo-600 font-mono">(0)</span>
+                    </h2>
+                    <input type="text" id="clients-search" placeholder="Pesquisar por nome ou documento..." onkeyup="renderClients()" class="w-72 p-2 px-4 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="text-[10px] text-slate-400 uppercase font-bold border-b border-slate-50">
+                            <tr>
+                                <th class="px-6 py-5">Nome</th>
+                                <th class="px-6 py-5">Documento</th>
+                                <th class="px-6 py-5 text-center">Tipo</th>
+                                <th class="px-6 py-5">E-mail</th>
+                                <th class="px-6 py-5">Telefone</th>
+                                <th class="px-6 py-5 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clients-list" class="divide-y divide-slate-50 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
     </div>
 
     <!-- MODAIS -->
@@ -290,6 +346,28 @@
             </div>
             <div id="summary-content" class="bg-slate-50 p-8 rounded-3xl font-mono text-xs whitespace-pre-wrap text-slate-700 border border-slate-100 mb-8 text-left leading-relaxed"></div>
             <button onclick="copySummaryToClipboard()" class="w-full py-5 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl">Copiar para WhatsApp</button>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR CLIENTE -->
+    <div id="client-modal" class="fixed inset-0 z-[500] hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-white rounded-[2.5rem] max-w-md w-full p-10 shadow-2xl border border-slate-100">
+            <h3 class="text-2xl font-bold text-slate-900 mb-8 tracking-tight">Editar Cliente</h3>
+            <div class="space-y-4">
+                <input type="text" id="edit-client-name" placeholder="Nome completo" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                <input type="text" id="edit-client-doc" placeholder="CPF ou CNPJ" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                <select id="edit-client-type" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none">
+                    <option value="Cliente">Cliente</option>
+                    <option value="Fornecedor">Fornecedor</option>
+                    <option value="Ambos">Ambos</option>
+                </select>
+                <input type="email" id="edit-client-email" placeholder="E-mail (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                <input type="text" id="edit-client-phone" placeholder="Telefone (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+            </div>
+            <div class="flex flex-col gap-3 mt-8">
+                <button onclick="saveEditClient()" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl">Salvar Alterações</button>
+                <button onclick="document.getElementById('client-modal').classList.add('hidden')" class="w-full py-4 text-slate-400 font-bold text-sm transition hover:text-slate-600">Cancelar</button>
+            </div>
         </div>
     </div>
 
@@ -396,6 +474,7 @@
                 if (idDisplay) idDisplay.innerText = `ID: ${u.uid.slice(0,8)}`;
                 await loadProfilePrefs(u.uid);
                 startSync();
+                startClientsSync();
             } else {
                 const authScr = document.getElementById('auth-screen');
                 if (authScr) authScr.classList.remove('hidden');
@@ -743,6 +822,255 @@
                 chart = new Chart(ctx, { type: 'bar', data: { labels: [], datasets: [{ label: 'Cartão R$', data: [], backgroundColor: '#6366f1', borderRadius: 12 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } } } });
             }
         };
+
+        // =============================================
+        // MÓDULO DE CLIENTES / FORNECEDORES
+        // RN001: CPF (999.999.999-99) ou CNPJ (99.999.999/9999-99) válido obrigatório
+        // =============================================
+
+        let clients = [];
+        let unsubscribeClients = null;
+        let editingClientId = null;
+
+        // --- Validação CPF ---
+        const validateCPF = (cpf) => {
+            if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+            let sum = 0;
+            for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i);
+            let check = (sum * 10) % 11;
+            if (check >= 10) check = 0;
+            if (check !== parseInt(cpf[9])) return false;
+            sum = 0;
+            for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i);
+            check = (sum * 10) % 11;
+            if (check >= 10) check = 0;
+            return check === parseInt(cpf[10]);
+        };
+
+        // --- Validação CNPJ ---
+        const validateCNPJ = (cnpj) => {
+            if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
+            const calc = (n, w) => {
+                let s = 0;
+                for (let i = 0; i < w.length; i++) s += parseInt(n[i]) * w[i];
+                const r = s % 11;
+                return r < 2 ? 0 : 11 - r;
+            };
+            return calc(cnpj, [5,4,3,2,9,8,7,6,5,4,3,2]) === parseInt(cnpj[12]) &&
+                   calc(cnpj, [6,5,4,3,2,9,8,7,6,5,4,3,2]) === parseInt(cnpj[13]);
+        };
+
+        const validateDoc = (raw) => {
+            const d = raw.replace(/\D/g, '');
+            if (d.length === 11) return validateCPF(d) ? { valid: true, type: 'CPF', digits: d } : { valid: false };
+            if (d.length === 14) return validateCNPJ(d) ? { valid: true, type: 'CNPJ', digits: d } : { valid: false };
+            return { valid: false };
+        };
+
+        const formatDoc = (digits, type) => {
+            if (type === 'CPF') return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+            return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+        };
+
+        // --- Sync Firestore Clientes ---
+        const startClientsSync = () => {
+            if (!currentUser) return;
+            if (unsubscribeClients) unsubscribeClients();
+            unsubscribeClients = onSnapshot(
+                collection(db, 'artifacts', appId, 'users', currentUser.uid, 'clients'),
+                (snap) => {
+                    clients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    renderClients();
+                }
+            );
+        };
+
+        // --- Render da Grid de Clientes ---
+        window.renderClients = () => {
+            const tbody = document.getElementById('clients-list');
+            const countEl = document.getElementById('clients-count');
+            const search = document.getElementById('clients-search')?.value?.toLowerCase().trim() || '';
+            if (!tbody) return;
+
+            const filtered = clients.filter(c =>
+                (c.name || '').toLowerCase().includes(search) ||
+                (c.docFormatted || '').toLowerCase().includes(search) ||
+                (c.doc || '').includes(search)
+            );
+
+            if (countEl) countEl.innerText = `(${filtered.length})`;
+
+            if (!filtered.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400 italic font-medium">Nenhum cliente/fornecedor encontrado.</td></tr>`;
+                return;
+            }
+
+            const typeBadgeClass = {
+                'Cliente':    'bg-blue-50 text-blue-600 border border-blue-100',
+                'Fornecedor': 'bg-amber-50 text-amber-600 border border-amber-100',
+                'Ambos':      'bg-purple-50 text-purple-600 border border-purple-100'
+            };
+
+            tbody.innerHTML = '';
+            filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(c => {
+                const badge = typeBadgeClass[c.type] || 'bg-slate-100 text-slate-500';
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/50 transition-all';
+                tr.innerHTML = `
+                    <td class="px-6 py-5 font-bold text-slate-800">${c.name}</td>
+                    <td class="px-6 py-5 font-mono text-sm text-slate-600">
+                        <span class="text-[10px] font-bold uppercase text-slate-400 mr-1">${c.docType}</span>${c.docFormatted || c.doc}
+                    </td>
+                    <td class="px-6 py-5 text-center">
+                        <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${badge}">${c.type}</span>
+                    </td>
+                    <td class="px-6 py-5 text-slate-500 text-sm">${c.email || '—'}</td>
+                    <td class="px-6 py-5 text-slate-500 text-sm">${c.phone || '—'}</td>
+                    <td class="px-6 py-5 text-center">
+                        <div class="flex items-center justify-center gap-3">
+                            <button onclick="openEditClient('${c.id}')" class="text-slate-300 hover:text-indigo-500 transition-colors" title="Editar">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <button onclick="deleteClient('${c.id}')" class="text-slate-300 hover:text-rose-500 transition-colors" title="Eliminar">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        };
+
+        // --- Excluir Cliente (com modal de confirmação) ---
+        window.deleteClient = (id) => {
+            const m = document.getElementById('confirm-modal');
+            const btns = document.getElementById('modal-buttons');
+            const title = document.getElementById('modal-title');
+            const msg = document.getElementById('modal-message');
+            if (!m || !btns) return;
+
+            btns.innerHTML = '';
+            title.innerText = "Eliminar Cliente";
+            msg.innerText = "Tens a certeza que desejas eliminar este cliente/fornecedor? Esta ação é irreversível.";
+
+            const b1 = document.createElement('button');
+            b1.innerText = "Sim, eliminar";
+            b1.className = "w-full py-4 bg-rose-600 text-white font-bold rounded-2xl transition hover:bg-rose-700";
+            b1.onclick = async () => {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'clients', id));
+                m.classList.add('hidden');
+                showToast("Cliente eliminado com sucesso.");
+            };
+
+            const b2 = document.createElement('button');
+            b2.innerText = "Cancelar";
+            b2.className = "w-full py-4 bg-slate-100 font-bold rounded-2xl transition hover:bg-slate-200";
+            b2.onclick = () => m.classList.add('hidden');
+
+            btns.appendChild(b1);
+            btns.appendChild(b2);
+            m.classList.remove('hidden');
+        };
+
+        // --- Abrir Modal de Edição ---
+        window.openEditClient = (id) => {
+            const client = clients.find(c => c.id === id);
+            if (!client) return;
+            editingClientId = id;
+            document.getElementById('edit-client-name').value = client.name || '';
+            document.getElementById('edit-client-doc').value = client.docFormatted || client.doc || '';
+            document.getElementById('edit-client-type').value = client.type || 'Cliente';
+            document.getElementById('edit-client-email').value = client.email || '';
+            document.getElementById('edit-client-phone').value = client.phone || '';
+            document.getElementById('client-modal').classList.remove('hidden');
+        };
+
+        // --- Salvar Edição de Cliente ---
+        window.saveEditClient = async () => {
+            if (!editingClientId || !currentUser) return;
+            const name = document.getElementById('edit-client-name').value.trim();
+            const rawDoc = document.getElementById('edit-client-doc').value.trim();
+            const type = document.getElementById('edit-client-type').value;
+            const email = document.getElementById('edit-client-email').value.trim();
+            const phone = document.getElementById('edit-client-phone').value.trim();
+
+            if (!name || !rawDoc) return showToast("Nome e documento são obrigatórios. [MSG004]");
+            const result = validateDoc(rawDoc);
+            if (!result.valid) return showToast("CPF ou CNPJ inválido. Verifica o número. [RN001]");
+
+            await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'clients', editingClientId), {
+                name,
+                doc: result.digits,
+                docType: result.type,
+                docFormatted: formatDoc(result.digits, result.type),
+                type, email, phone
+            });
+            showToast("Cliente atualizado com sucesso!");
+            document.getElementById('client-modal').classList.add('hidden');
+            editingClientId = null;
+        };
+
+        // --- Submissão do Formulário de Novo Cliente ---
+        const clientForm = document.getElementById('client-form');
+        if (clientForm) {
+            clientForm.onsubmit = async (e) => {
+                e.preventDefault();
+                if (!currentUser) return;
+                const name = document.getElementById('client-name').value.trim();
+                const rawDoc = document.getElementById('client-doc').value.trim();
+                const type = document.getElementById('client-type').value;
+                const email = document.getElementById('client-email').value.trim();
+                const phone = document.getElementById('client-phone').value.trim();
+
+                if (!name || !rawDoc) return showToast("Preenche todos os campos obrigatórios. [MSG004]");
+
+                const result = validateDoc(rawDoc);
+                if (!result.valid) return showToast("CPF ou CNPJ inválido. [RN001]");
+
+                // Verificar duplicidade de documento
+                const dup = clients.find(c => c.doc === result.digits);
+                if (dup) return showToast(`Documento já cadastrado para: ${dup.name}`);
+
+                await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'clients'), {
+                    name,
+                    doc: result.digits,
+                    docType: result.type,
+                    docFormatted: formatDoc(result.digits, result.type),
+                    type, email, phone,
+                    createdAt: new Date().toISOString()
+                });
+                clientForm.reset();
+                showToast("Cliente guardado com sucesso!");
+            };
+        }
+
+        // --- Troca de Tabs ---
+        window.switchTab = (tab) => {
+            const dashboard = document.getElementById('app-content');
+            const clientsSection = document.getElementById('clients-section');
+            const tabDash = document.getElementById('tab-dashboard');
+            const tabClients = document.getElementById('tab-clients');
+            const active = ['bg-indigo-600', 'text-white', 'shadow-sm'];
+            const inactive = ['text-slate-500', 'hover:bg-slate-100'];
+
+            if (tab === 'dashboard') {
+                dashboard?.classList.remove('hidden');
+                clientsSection?.classList.add('hidden');
+                tabDash?.classList.add(...active);
+                tabDash?.classList.remove(...inactive);
+                tabClients?.classList.remove(...active);
+                tabClients?.classList.add(...inactive);
+            } else {
+                dashboard?.classList.add('hidden');
+                clientsSection?.classList.remove('hidden');
+                tabDash?.classList.remove(...active);
+                tabDash?.classList.add(...inactive);
+                tabClients?.classList.add(...active);
+                tabClients?.classList.remove(...inactive);
+                renderClients();
+            }
+        };
+
     </script>
 </body>
 </html>
