@@ -91,7 +91,13 @@ export class TransactionController {
 
     async addTransaction(data) {
         const uid = state.currentUser?.uid;
-        if (uid) await TransactionModel.add(uid, data);
+        if (!uid) { ModalView.showToast("Erro: utilizador não autenticado."); return; }
+        try {
+            await TransactionModel.add(uid, data);
+        } catch (e) {
+            console.error("Erro ao guardar transação:", e);
+            ModalView.showToast("Erro ao guardar: " + (e.message || e.code || "verifique a consola."));
+        }
     }
 
     _bindManualForm() {
@@ -173,19 +179,33 @@ export class TransactionController {
 
         await AIService.process(text, {
             onSuccess: async (data) => {
-                if (data.items) {
-                    for (const i of data.items) {
+                const items = data.items || data.transacoes || data.transactions || (Array.isArray(data) ? data : null);
+                if (items && items.length > 0) {
+                    for (const i of items) {
                         await this.addTransaction({
-                            desc: i.desc,
-                            amount: parseFloat(i.total || i.valor || i.amount || 0),
-                            category: i.category || "Outros",
-                            method: i.method || "Dinheiro/Pix",
+                            desc: i.desc || i.descricao || i.item || i.description || "Sem descrição",
+                            amount: parseFloat(i.total || i.valor || i.amount || i.value || 0),
+                            category: i.category || i.categoria || "Outros",
+                            method: i.method || i.metodo || "Dinheiro/Pix",
                             dateKey: currentMonthKey,
-                            bank: i.bank || ""
+                            bank: i.bank || i.banco || ""
                         });
                     }
+                    ModalView.showToast("Processado com sucesso!");
+                } else if (data.desc || data.descricao || data.item) {
+                    await this.addTransaction({
+                        desc: data.desc || data.descricao || data.item || "Sem descrição",
+                        amount: parseFloat(data.total || data.valor || data.amount || 0),
+                        category: data.category || data.categoria || "Outros",
+                        method: data.method || data.metodo || "Dinheiro/Pix",
+                        dateKey: currentMonthKey,
+                        bank: data.bank || data.banco || ""
+                    });
+                    ModalView.showToast("Processado com sucesso!");
+                } else {
+                    console.warn("Resposta do Ollama sem estrutura reconhecida:", data);
+                    ModalView.showToast("IA não reconheceu o formato. Tenta ser mais específico.");
                 }
-                ModalView.showToast("Processado com sucesso!");
                 if (isImport) ModalView.closeImportModal();
                 else { const el = document.getElementById('ai-input'); if (el) el.value = ''; }
                 DashboardView.setOllamaStatus(true);
