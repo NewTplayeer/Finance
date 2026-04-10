@@ -96,6 +96,17 @@ export class AuthController {
                 }
             };
         }
+
+        const forgotBtn = document.getElementById('forgot-pin-btn');
+        if (forgotBtn) {
+            forgotBtn.onclick = async () => {
+                if (!state.currentUser) return;
+                await UserModel.savePrefs(state.currentUser.uid, { userName: this._profileName, appPassword: "" });
+                this._profilePassword = "";
+                ModalView.showToast("PIN removido. Podes definir um novo no teu perfil.");
+                this._showMainApp();
+            };
+        }
     }
 
     _bindProfileModal() {
