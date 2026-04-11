@@ -19,6 +19,8 @@ export const currentMonthKey = new Date().toISOString().slice(0, 7);
 
 // Open Finance (Pluggy.ai) — regista em https://pluggy.ai e adiciona as tuas credenciais
 export const pluggyConfig = {
-    clientId:     '',   // ex: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
-    clientSecret: ''    // ex: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+    clientId:     '329a3f3a-ce45-49f2-b9c4-252ac6824718',   // ex: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+    clientSecret: '47befe74-2e56-45e0-8a38-2447574cc79e'    // ex: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 };
+
+// API: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoiNmE5NTgyY2U0YjNlMWVkNDdjYmRjMTE3MWM1ZmQzZmE6MmQwZmY2NGIwYTRlNDRhNjVjMjMyZGFjY2FiOGUxNGJlYWFjMWNjYjY0MjJkMjM3OGM4ZDkxOTc0N2E1ZTJlNTc4ODNhNDViMzVlMzRlMjkxNWZiODFmMDNiMzgwZDZmYjdkNTU1ZWE1NTg1N2FkMWFhZTA4Yzc1NjQ0OThmNDUxZDEwNzhkYzIyZjIxMGRjZGRkOTRkM2I4OWRhZGY3NyIsImlhdCI6MTc3NTkxMTU0NCwiZXhwIjoxNzc1OTE4NzQ0fQ.HYKSZXdNM5_3Y1Yo_9KDVO_AGXFmWDu_AwsMoDYVuIHe4EJMVhmGIAYq0InrX7dHavX2kzVLnIY4vtsGaGl2ycb2ppEzDY9vtVs_2T3TVzIHf49Lq7nmXQsFLid2MnvxpQKmqVZnLS-_fkKdx-_muV8GdN289AFZwG1Oqg1U8ktOWLbzL6hJn9Ovx_UNldWMcXOEAQeyXBHmrTlMo4bzjJdN_oyjOM0snpoy6SKFFORVoGKMshJxj-SVLCBpDNWoM-iqJ8Ir6ZI8Bu7Kjf0o34dUVlCd7nCyqbxvimsERUIF_LYCAteNc_EOX2hqLqElWMamdjcSNmL61iht1859Cg
