@@ -1,7 +1,9 @@
 import { auth } from '../firebase.js';
 import {
-    signInWithEmailAndPassword, createUserWithEmailAndPassword,
-    signOut, onAuthStateChanged, updateProfile
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { UserModel } from '../models/UserModel.js';
 import { state } from '../state.js';
@@ -39,7 +41,7 @@ export class AuthController {
 
     _bindAuthForm() {
         let authMode = 'login';
-        const mainBtn = document.getElementById('auth-main-btn');
+        const mainBtn   = document.getElementById('auth-main-btn');
         const toggleBtn = document.getElementById('auth-toggle-btn');
         const nameGroup = document.getElementById('register-name-group');
 
@@ -47,11 +49,14 @@ export class AuthController {
             toggleBtn.onclick = () => {
                 authMode = authMode === 'login' ? 'register' : 'login';
                 const isLogin = authMode === 'login';
-                document.getElementById('auth-title').innerText = isLogin ? 'NT Finanças' : 'Criar Conta';
-                document.getElementById('auth-subtitle').innerText = isLogin
+
+                const title    = document.getElementById('auth-title');
+                const subtitle = document.getElementById('auth-subtitle');
+                if (title)    title.innerText    = isLogin ? 'NT Finanças' : 'Criar Conta';
+                if (subtitle) subtitle.innerText = isLogin
                     ? 'Inicia sessão para aceder ao teu painel.'
                     : 'Preenche os teus dados para começar.';
-                mainBtn.innerText = isLogin ? 'Entrar no Sistema' : 'Criar Minha Conta';
+                if (mainBtn)  mainBtn.innerText  = isLogin ? 'Entrar no Sistema' : 'Criar Minha Conta';
                 toggleBtn.innerText = isLogin
                     ? 'Ainda não tens conta? Regista-te agora'
                     : 'Já tens conta? Entra aqui';
@@ -61,40 +66,57 @@ export class AuthController {
 
         if (mainBtn) {
             mainBtn.onclick = async () => {
-                const email = document.getElementById('auth-email')?.value?.trim();
+                const email    = document.getElementById('auth-email')?.value?.trim();
                 const password = document.getElementById('auth-password')?.value?.trim();
-                const name = document.getElementById('auth-name')?.value?.trim();
+                const name     = document.getElementById('auth-name')?.value?.trim();
 
-                if (!email || !password) return ModalView.showToast("Por favor, preenche todos os campos!");
-                if (authMode === 'register' && !name) return ModalView.showToast("Por favor, indica o teu nome!");
+                if (!email || !password) {
+                    return ModalView.showToast('Por favor, preenche o e-mail e a palavra-passe.');
+                }
+                if (authMode === 'register' && !name) {
+                    return ModalView.showToast('Por favor, indica o teu nome.');
+                }
+
+                // Feedback visual — desativa botão durante operação
+                mainBtn.disabled = true;
+                const original = mainBtn.innerText;
+                mainBtn.innerText = 'A processar...';
 
                 try {
                     if (authMode === 'login') {
                         await signInWithEmailAndPassword(auth, email, password);
                     } else {
                         const cred = await createUserWithEmailAndPassword(auth, email, password);
-                        // Guarda o nome imediatamente nas preferências
                         await UserModel.savePrefs(cred.user.uid, {
                             userName: name,
-                            appPassword: "",
+                            appPassword: '',
                             createdAt: new Date().toISOString()
                         });
-                        ModalView.showToast(`Bem-vindo, ${name}! Conta criada com sucesso!`, 'success');
+                        ModalView.showToast(`Bem-vindo, ${name}! Conta criada com sucesso!`);
                     }
                 } catch (err) {
-                    console.error("Firebase Auth Error:", err.code);
-                    if (['auth/invalid-credential', 'auth/user-not-found', 'auth/wrong-password'].includes(err.code)) {
-                        ModalView.showToast("Dados incorretos. Verifica o e-mail ou a senha.", 'error');
-                    } else if (err.code === 'auth/email-already-in-use') {
-                        ModalView.showToast("E-mail já registado. Tenta fazer login.", 'error');
-                    } else if (err.code === 'auth/weak-password') {
-                        ModalView.showToast("A senha deve ter pelo menos 6 caracteres.", 'error');
-                    } else {
-                        ModalView.showToast("Falha na autenticação: " + err.code, 'error');
-                    }
+                    console.error('Firebase Auth Error:', err.code, err.message);
+                    const msgs = {
+                        'auth/invalid-credential'  : 'E-mail ou palavra-passe incorretos.',
+                        'auth/user-not-found'       : 'Utilizador não encontrado.',
+                        'auth/wrong-password'       : 'Palavra-passe incorreta.',
+                        'auth/email-already-in-use' : 'E-mail já registado. Tenta fazer login.',
+                        'auth/weak-password'        : 'A senha precisa de pelo menos 6 caracteres.',
+                        'auth/invalid-email'        : 'Endereço de e-mail inválido.',
+                        'auth/too-many-requests'    : 'Muitas tentativas. Aguarda uns minutos.'
+                    };
+                    ModalView.showToast(msgs[err.code] || 'Erro: ' + (err.code || err.message));
+                } finally {
+                    mainBtn.disabled = false;
+                    mainBtn.innerText = original;
                 }
             };
         }
+
+        // Submeter com Enter no campo de password
+        document.getElementById('auth-password')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') mainBtn?.click();
+        });
     }
 
     _bindLockScreen() {
@@ -105,27 +127,26 @@ export class AuthController {
                 if (inputEl?.value === this._profilePassword) {
                     this._showMainApp();
                 } else {
-                    ModalView.showToast("PIN incorreto!", 'error');
-                    if (inputEl) inputEl.value = "";
+                    ModalView.showToast('PIN incorreto!');
+                    if (inputEl) inputEl.value = '';
                 }
             };
         }
+
+        document.getElementById('lock-password-input')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('unlock-btn')?.click();
+        });
 
         const forgotBtn = document.getElementById('forgot-pin-btn');
         if (forgotBtn) {
             forgotBtn.onclick = async () => {
                 if (!state.currentUser) return;
-                await UserModel.savePrefs(state.currentUser.uid, { userName: this._profileName, appPassword: "" });
-                this._profilePassword = "";
-                ModalView.showToast("PIN removido. Podes definir um novo no teu perfil.");
+                await UserModel.savePrefs(state.currentUser.uid, { appPassword: '' });
+                this._profilePassword = '';
+                ModalView.showToast('PIN removido.');
                 this._showMainApp();
             };
         }
-
-        // Desbloqueia com Enter
-        document.getElementById('lock-password-input')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') document.getElementById('unlock-btn')?.click();
-        });
     }
 
     _bindProfileModal() {
@@ -136,117 +157,106 @@ export class AuthController {
     async _loadProfile(uid) {
         try {
             const prefs = await UserModel.getPrefs(uid);
-            if (prefs) {
-                this._profilePassword = prefs.appPassword || "";
-                this._profileName = prefs.userName || "";
-                state.sharedSpaceId = prefs.sharedSpaceId || null;
-                state.budgets = prefs.budgets || {};
-            } else {
-                this._profilePassword = "";
-                this._profileName = "";
-            }
-            state.userName = this._profileName;
+            this._profilePassword = prefs?.appPassword || '';
+            this._profileName     = prefs?.userName    || '';
+            state.sharedSpaceId   = prefs?.sharedSpaceId || null;
+            state.budgets         = prefs?.budgets || {};
+            state.userName        = this._profileName;
+
             this._updateAvatarUI(this._profileName);
+
             const lockName = document.getElementById('lock-user-name');
-            if (lockName) lockName.innerText = this._profileName || "Olá!";
+            if (lockName) lockName.innerText = this._profileName || 'Olá!';
 
             if (this._profilePassword) {
                 document.getElementById('app-lock-screen')?.classList.remove('hidden');
                 document.getElementById('main-interface')?.classList.add('hidden');
-                document.getElementById('lock-password-input')?.focus();
+                setTimeout(() => document.getElementById('lock-password-input')?.focus(), 100);
             } else {
                 this._showMainApp();
             }
         } catch (err) {
-            console.error("Erro ao carregar preferências:", err);
+            console.error('Erro ao carregar perfil:', err);
             this._showMainApp();
         }
     }
 
     _showMainApp() {
         document.getElementById('app-lock-screen')?.classList.add('hidden');
-        const mainInterface = document.getElementById('main-interface');
-        if (mainInterface) mainInterface.classList.remove('hidden');
-        const appContent = document.getElementById('app-content');
-        if (appContent) appContent.classList.remove('opacity-0', 'pointer-events-none');
+        document.getElementById('main-interface')?.classList.remove('hidden');
+        document.getElementById('app-content')?.classList.remove('opacity-0', 'pointer-events-none');
     }
 
     _updateAvatarUI(name) {
-        const initial = (name || "U").charAt(0).toUpperCase();
-        const avatar = document.getElementById('nav-avatar');
+        const initial = (name || 'U').charAt(0).toUpperCase();
+        const avatar  = document.getElementById('nav-avatar');
         const navName = document.getElementById('nav-user-name');
-        const lockAvatar = document.getElementById('lock-avatar-circle');
-        if (avatar) avatar.innerText = initial;
-        if (navName) navName.innerText = name ? `Olá, ${name.split(' ')[0]}` : "Utilizador";
-        if (lockAvatar) lockAvatar.innerText = initial;
+        const lockAv  = document.getElementById('lock-avatar-circle');
+        const greet   = document.getElementById('welcome-greeting');
 
-        // Mostra saudação personalizada
-        const greet = document.getElementById('welcome-greeting');
-        if (greet && name) greet.innerText = `Bem-vindo de volta, ${name.split(' ')[0]}!`;
+        if (avatar)  avatar.innerText  = initial;
+        if (navName) navName.innerText = name ? `Olá, ${name.split(' ')[0]}` : 'Utilizador';
+        if (lockAv)  lockAv.innerText  = initial;
+        if (greet)   greet.innerText   = name ? `Bem-vindo de volta, ${name.split(' ')[0]}! 👋` : '';
     }
 
     openProfileModal() {
-        ModalView.openProfileModal(this._profileName, this._profilePassword);
-        this._updateSharedSpaceUI();
+        const nameEl = document.getElementById('profile-name-input');
+        const passEl = document.getElementById('profile-pass-input');
+        if (nameEl) nameEl.value = this._profileName || '';
+        if (passEl) passEl.value = this._profilePassword || '';
 
-        // Preenche campos de metas
+        // Preenche metas
         const budgets = state.budgets || {};
-        document.querySelectorAll('[data-budget-cat]').forEach(input => {
-            const cat = input.dataset.budgetCat;
-            input.value = budgets[cat] ? budgets[cat] : '';
+        document.querySelectorAll('[data-budget-cat]').forEach(inp => {
+            inp.value = budgets[inp.dataset.budgetCat] || '';
         });
 
-        // Preenche código do espaço partilhado se existir
-        if (state.sharedSpaceId) {
-            const codeEl = document.getElementById('shared-space-code');
-            if (codeEl) codeEl.innerText = state.sharedSpaceId;
-        }
+        // Estado do espaço partilhado
+        this._updateSharedSpaceUI();
+
+        document.getElementById('profile-modal')?.classList.remove('hidden');
     }
 
     _updateSharedSpaceUI() {
-        const spaceInfoEl = document.getElementById('shared-space-info');
-        const spaceCodeEl = document.getElementById('shared-space-code');
-        const createBtn = document.getElementById('btn-create-space');
-        const joinSection = document.getElementById('join-space-section');
+        const spaceInfo  = document.getElementById('shared-space-info');
+        const spaceCode  = document.getElementById('shared-space-code');
+        const createBtn  = document.getElementById('btn-create-space');
+        const joinSect   = document.getElementById('join-space-section');
 
         if (state.sharedSpaceId) {
-            if (spaceInfoEl) spaceInfoEl.classList.remove('hidden');
-            if (spaceCodeEl) spaceCodeEl.innerText = state.sharedSpaceId;
-            if (createBtn) createBtn.classList.add('hidden');
-            if (joinSection) joinSection.classList.add('hidden');
+            spaceInfo?.classList.remove('hidden');
+            if (spaceCode) spaceCode.innerText = state.sharedSpaceId;
+            createBtn?.classList.add('hidden');
+            joinSect?.classList.add('hidden');
         } else {
-            if (spaceInfoEl) spaceInfoEl.classList.add('hidden');
-            if (createBtn) createBtn.classList.remove('hidden');
-            if (joinSection) joinSection.classList.remove('hidden');
+            spaceInfo?.classList.add('hidden');
+            createBtn?.classList.remove('hidden');
+            joinSect?.classList.remove('hidden');
         }
     }
 
     async saveProfile() {
         if (!state.currentUser) return;
-        const name = document.getElementById('profile-name-input')?.value?.trim() || this._profileName || "Utilizador";
-        const pin = document.getElementById('profile-pass-input')?.value?.trim() || "";
 
-        // Recolhe metas de gastos
+        const name = document.getElementById('profile-name-input')?.value?.trim() || this._profileName || 'Utilizador';
+        const pin  = document.getElementById('profile-pass-input')?.value?.trim() || '';
+
         const budgets = {};
-        document.querySelectorAll('[data-budget-cat]').forEach(input => {
-            const cat = input.dataset.budgetCat;
-            const val = parseFloat(input.value);
-            if (val > 0) budgets[cat] = val;
+        document.querySelectorAll('[data-budget-cat]').forEach(inp => {
+            const val = parseFloat(inp.value);
+            if (val > 0) budgets[inp.dataset.budgetCat] = val;
         });
 
-        await UserModel.savePrefs(state.currentUser.uid, {
-            userName: name,
-            appPassword: pin,
-            budgets
-        });
+        await UserModel.savePrefs(state.currentUser.uid, { userName: name, appPassword: pin, budgets });
 
-        state.budgets = budgets;
         this._profilePassword = pin;
-        this._profileName = name;
-        state.userName = name;
+        this._profileName     = name;
+        state.userName        = name;
+        state.budgets         = budgets;
         this._updateAvatarUI(name);
-        ModalView.showToast("Perfil guardado!", 'success');
-        ModalView.closeProfileModal();
+        ModalView.showToast('Perfil guardado com sucesso!');
+        document.getElementById('profile-modal')?.classList.add('hidden');
     }
 
     logout() {

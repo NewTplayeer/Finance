@@ -41,14 +41,18 @@ const authController = new AuthController({
 
 // --- Bootstrap ---
 window.addEventListener('DOMContentLoaded', () => {
-    // Inicializar gráficos
-    const canvas = document.getElementById('projectionChart');
-    if (canvas) {
-        state.chart = DashboardView.initChart(canvas);
-    }
-    const pieCanvas = document.getElementById('pieChart');
-    if (pieCanvas) {
-        state.pieChart = DashboardView.initPieChart(pieCanvas);
+    // Inicializar gráficos — guarda defensiva: não bloqueia o resto se Chart.js não carregar
+    if (typeof Chart !== 'undefined') {
+        try {
+            const canvas = document.getElementById('projectionChart');
+            if (canvas) state.chart = DashboardView.initChart(canvas);
+            const pieCanvas = document.getElementById('pieChart');
+            if (pieCanvas) state.pieChart = DashboardView.initPieChart(pieCanvas);
+        } catch (e) {
+            console.warn('Chart.js: falha na inicialização dos gráficos:', e);
+        }
+    } else {
+        console.warn('Chart.js não carregado — gráficos desactivados.');
     }
 
     // Inicializar controllers
@@ -76,6 +80,6 @@ window.addEventListener('DOMContentLoaded', () => {
         openProfileBtn.onclick = () => authController.openProfileModal();
     }
 
-    // Iniciar autenticação
+    // Iniciar autenticação — SEMPRE executa, independentemente do estado dos gráficos
     authController.init();
 });
