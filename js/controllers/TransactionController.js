@@ -137,27 +137,38 @@ export class TransactionController {
         if (!form) return;
         form.onsubmit = async (e) => {
             e.preventDefault();
-            const desc = document.getElementById('desc')?.value?.trim();
-            const amount = parseFloat(document.getElementById('amount')?.value || 0);
-            const category = document.getElementById('category')?.value;
-            const method = document.getElementById('method')?.value;
-            const bank = document.getElementById('bank-input')?.value?.trim();
-            const installments = parseInt(document.getElementById('installments')?.value || 1);
-            const clientId = document.getElementById('client-id-select')?.value || "";
+            const desc         = document.getElementById('desc')?.value?.trim();
+            const amount       = parseFloat(document.getElementById('amount')?.value) || 0;
+            const category     = document.getElementById('category')?.value;
+            const method       = document.getElementById('method')?.value;
+            const bank         = document.getElementById('bank-input')?.value?.trim();
+            const rawInstall   = document.getElementById('installments')?.value;
+            const installments = Math.max(1, parseInt(rawInstall, 10) || 1);
+            const clientId     = document.getElementById('client-id-select')?.value || "";
 
-            if (!desc || !amount || amount <= 0) {
+            if (!desc || amount <= 0) {
                 ModalView.showToast("Preenche a descrição e o valor.", 'error');
                 return;
             }
 
-            await this.addTransaction({
-                desc, amount, category, method, bank,
-                installments: installments > 1 ? installments : 1,
-                clientId,
-                dateKey: this.getSelectedMonth()
-            });
+            const dateKey = this.getSelectedMonth();
+            await this.addTransaction({ desc, amount, category, method, bank, installments, clientId, dateKey });
             form.reset();
-            ModalView.showToast("Transação guardada!", 'success');
+
+            if (installments > 1) {
+                // Mostra em que meses as parcelas foram distribuídas
+                const [y, m] = dateKey.split('-').map(Number);
+                const meses = Array.from({ length: installments }, (_, i) => {
+                    const d = new Date(y, m - 1 + i, 1);
+                    return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+                });
+                const preview = meses.length > 3
+                    ? `${meses.slice(0, 3).join(', ')}… (+${meses.length - 3})`
+                    : meses.join(', ');
+                ModalView.showToast(`${installments} parcelas guardadas: ${preview}`, 'success');
+            } else {
+                ModalView.showToast("Transação guardada!", 'success');
+            }
         };
 
         const clearBtn = document.querySelector('[onclick="openConfirmModal(\'clearAll\')"]');
