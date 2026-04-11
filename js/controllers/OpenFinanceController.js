@@ -5,8 +5,12 @@ import { pluggyConfig } from '../config.js';
 // URLs tentadas em sequência até uma carregar com sucesso
 const PLUGGY_SDK_URLS = [
     'https://cdn.pluggy.ai/pluggy-connect/v2.2.0/pluggy-connect.min.js',
+    'https://cdn.pluggy.ai/pluggy-connect/v2.3.0/pluggy-connect.min.js',
     'https://cdn.pluggy.ai/pluggy-connect/v2.1.0/pluggy-connect.min.js',
+    'https://cdn.jsdelivr.net/npm/@pluggy/connect@latest/dist/pluggy-connect.min.js',
+    'https://cdn.jsdelivr.net/npm/@pluggy/connect@2/dist/pluggy-connect.min.js',
     'https://unpkg.com/@pluggy/connect@latest/dist/pluggy-connect.min.js',
+    'https://unpkg.com/@pluggy/connect@2/dist/pluggy-connect.min.js',
 ];
 
 export class OpenFinanceController {
@@ -135,18 +139,19 @@ export class OpenFinanceController {
             const tryNext = () => {
                 if (idx >= PLUGGY_SDK_URLS.length) {
                     reject(new Error(
-                        'Não foi possível carregar o SDK do Pluggy. ' +
-                        'Verifica a tua ligação e se o Pluggy está disponível em pluggy.ai.'
+                        'Não foi possível carregar o SDK do Pluggy a partir de nenhum CDN. ' +
+                        'Verifica a tua ligação à internet e abre a consola do browser (F12 → Network) para ver qual URL falhou.'
                     ));
                     return;
                 }
                 const s = document.createElement('script');
-                s.src = PLUGGY_SDK_URLS[idx++];
+                const url = PLUGGY_SDK_URLS[idx++];
+                s.src = url;
                 s.onload = () => {
                     if (window.PluggyConnect) resolve();
-                    else { s.remove(); tryNext(); }   // carregou mas sem o global
+                    else { console.warn('[Pluggy] Script carregado mas PluggyConnect não encontrado:', url); s.remove(); tryNext(); }
                 };
-                s.onerror = () => { s.remove(); tryNext(); };
+                s.onerror = () => { console.warn('[Pluggy] Falhou a carregar:', url); s.remove(); tryNext(); };
                 document.head.appendChild(s);
             };
             tryNext();
