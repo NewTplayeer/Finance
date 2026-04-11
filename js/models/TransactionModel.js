@@ -17,17 +17,23 @@ const getActiveDocRef = (uid, id, spaceId = null) => spaceId
 export const TransactionModel = {
     async add(uid, { desc, amount, category, installments = 1, method = "Dinheiro/Pix", dateKey = currentMonthKey, bank = "", clientId = "" }, spaceId = null) {
         const ref = getActiveRef(uid, spaceId);
-        const part = amount / installments;
-        for (let i = 0; i < installments; i++) {
+        const n = Math.max(1, Math.floor(installments));
+        const part = parseFloat((amount / n).toFixed(2));
+        // Calcula o offset de meses a partir do dateKey base
+        const [baseYear, baseMonth] = dateKey.split('-').map(Number);
+
+        for (let i = 0; i < n; i++) {
+            const d = new Date(baseYear, baseMonth - 1 + i, 1);
+            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             const isPaid = (method === "Dinheiro/Pix" || method === "Cartão Débito" || category === "Receita");
             await addDoc(ref, {
-                desc: installments > 1 ? `${desc} (${i + 1}/${installments})` : desc,
+                desc: n > 1 ? `${desc} (${i + 1}/${n})` : desc,
                 amount: part,
                 category,
                 method,
                 bank,
                 clientId: clientId || "",
-                monthKey: dateKey,
+                monthKey,
                 paid: isPaid,
                 creator: uid,
                 createdAt: new Date().toISOString()
