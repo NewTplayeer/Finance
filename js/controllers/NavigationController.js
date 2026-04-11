@@ -1,14 +1,19 @@
 import { currentMonthKey } from '../config.js';
+import { state } from '../state.js';
 
 export class NavigationController {
-    constructor({ onMonthChange }) {
+    constructor({ onMonthChange, onModeChange }) {
         this.onMonthChange = onMonthChange;
+        this.onModeChange = onModeChange;
     }
 
     init() {
         this._initMonthFilter();
         this._bindTabButtons();
         this._bindModalCloseButtons();
+        this._bindDarkModeToggle();
+        this._bindModeToggle();
+        this._restoreDarkMode();
     }
 
     getSelectedMonth() {
@@ -20,13 +25,13 @@ export class NavigationController {
         if (!monthFilter) return;
 
         const now = new Date();
-        for (let i = -2; i <= 24; i++) {
+        for (let i = -6; i <= 24; i++) {
             const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
             const key = d.toISOString().slice(0, 7);
             const opt = document.createElement('option');
             opt.value = key;
             opt.selected = (key === currentMonthKey);
-            opt.innerText = d.toLocaleDateString('pt-pt', { month: 'long', year: 'numeric' });
+            opt.innerText = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
             monthFilter.appendChild(opt);
         }
 
@@ -74,8 +79,77 @@ export class NavigationController {
         }
     }
 
+    _bindDarkModeToggle() {
+        const btn = document.getElementById('dark-mode-toggle');
+        if (!btn) return;
+        btn.onclick = () => this.toggleDarkMode();
+    }
+
+    toggleDarkMode() {
+        state.darkMode = !state.darkMode;
+        document.documentElement.classList.toggle('dark', state.darkMode);
+        localStorage.setItem('nt-dark-mode', state.darkMode ? '1' : '0');
+        const btn = document.getElementById('dark-mode-toggle');
+        if (btn) btn.title = state.darkMode ? 'Modo Claro' : 'Modo Escuro';
+        const icon = document.getElementById('dark-mode-icon');
+        if (icon) icon.innerText = state.darkMode ? '☀️' : '🌙';
+    }
+
+    _restoreDarkMode() {
+        const saved = localStorage.getItem('nt-dark-mode');
+        if (saved === '1') {
+            state.darkMode = true;
+            document.documentElement.classList.add('dark');
+            const icon = document.getElementById('dark-mode-icon');
+            if (icon) icon.innerText = '☀️';
+        }
+    }
+
+    _bindModeToggle() {
+        const btnPersonal = document.getElementById('btn-mode-personal');
+        const btnShared = document.getElementById('btn-mode-shared');
+
+        if (btnPersonal) {
+            btnPersonal.onclick = () => this._setMode('personal');
+        }
+        if (btnShared) {
+            btnShared.onclick = () => {
+                if (!state.sharedSpaceId) {
+                    // Mostra modal do perfil para configurar espaço partilhado
+                    document.getElementById('nav-avatar')?.click();
+                    setTimeout(() => {
+                        document.getElementById('shared-space-tab')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 300);
+                    return;
+                }
+                this._setMode('shared');
+            };
+        }
+    }
+
+    _setMode(mode) {
+        state.viewMode = mode;
+        const btnPersonal = document.getElementById('btn-mode-personal');
+        const btnShared = document.getElementById('btn-mode-shared');
+        const active = ['bg-indigo-600', 'text-white'];
+        const inactive = ['text-slate-500', 'hover:bg-slate-100'];
+
+        if (mode === 'personal') {
+            btnPersonal?.classList.add(...active);
+            btnPersonal?.classList.remove(...inactive);
+            btnShared?.classList.remove(...active);
+            btnShared?.classList.add(...inactive);
+        } else {
+            btnShared?.classList.add(...active);
+            btnShared?.classList.remove(...inactive);
+            btnPersonal?.classList.remove(...active);
+            btnPersonal?.classList.add(...inactive);
+        }
+
+        if (this.onModeChange) this.onModeChange(mode);
+    }
+
     _bindModalCloseButtons() {
-        // Import modal
         const openImportBtn = document.querySelector('[onclick="openImportModal()"]');
         if (openImportBtn) {
             openImportBtn.removeAttribute('onclick');
@@ -92,14 +166,12 @@ export class NavigationController {
             };
         }
 
-        // Summary modal close
         const closeSummaryBtn = document.querySelector('#summary-modal button[onclick]');
         if (closeSummaryBtn) {
             closeSummaryBtn.removeAttribute('onclick');
             closeSummaryBtn.onclick = () => document.getElementById('summary-modal')?.classList.add('hidden');
         }
 
-        // Profile modal buttons (save & logout will be wired by AuthController)
         const closeProfileBtn = document.querySelector('[onclick="closeProfileModal()"]');
         if (closeProfileBtn) {
             closeProfileBtn.removeAttribute('onclick');

@@ -5,7 +5,30 @@ export const AIService = {
         if (!text) return;
         if (onStart) onStart();
 
-        const prompt = `Extrai dados financeiros e retorna apenas JSON válido. Identifica Banco, Item, Valor. Categoria "Receita" se for ganho. Texto: "${text}"`;
+        const prompt = `Analisa o texto financeiro abaixo e retorna APENAS JSON válido, sem texto extra, sem markdown.
+
+FORMATO OBRIGATÓRIO — sempre um objeto com array "items":
+{"items":[{"desc":"nome do item","amount":0.00,"category":"Categoria","method":"Método","bank":"Banco"}]}
+
+REGRAS:
+- "desc": nome claro do item ou serviço
+- "amount": número positivo (ex: 150.00). NUNCA string.
+- "category": EXATAMENTE um dos seguintes valores:
+  "Receita" → se for salário, pagamento recebido, renda
+  "Alimentação" → mercado, supermercado, restaurante, delivery, ifood, lanche, açougue
+  "Transporte" → uber, 99pop, gasolina, combustível, estacionamento, ônibus, metrô, táxi
+  "Saúde" → farmácia, remédio, médico, consulta, plano de saúde, hospital
+  "Lazer" → cinema, netflix, spotify, jogo, show, bar, academia, viagem
+  "Casa" → aluguel, condomínio, luz, energia, água, internet, gás, reforma, móveis
+  "Educação" → curso, livro, escola, faculdade, mensalidade
+  "Vestuário" → roupa, calçado, loja de roupas
+  "Serviços" → contador, advogado, salão, barbearia, freelancer
+  "Outros" → qualquer outra coisa
+- "method": EXATAMENTE um de: "Dinheiro/Pix", "Cartão Débito", "Cartão", "Boleto"
+  Crédito → "Cartão" | Débito → "Cartão Débito" | Pix/dinheiro → "Dinheiro/Pix"
+- "bank": nome do banco (Nubank, Inter, Itaú, Bradesco, C6, etc.) ou "" se não mencionado
+
+Texto: "${text}"`;
 
         try {
             const response = await fetch(ollamaConfig.baseUrl, {
@@ -19,10 +42,51 @@ export const AIService = {
                 })
             });
 
-            if (!response.ok) throw new Error("O servidor local Ollama não respondeu.");
+            if (!response.ok) throw new Error("Ollama não respondeu (status " + response.status + ")");
 
             const res = await response.json();
-            const data = JSON.parse(res.message.content);
+            const raw = res.message?.content || res.response || '';
+
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch {
+                // Tenta extrair JSON da resposta caso haja texto à volta
+                const match = raw.match(/\{[\s\S]*\}/);
+                if (match) data = JSON.parse(match[0]);
+                else throw new Error("Resposta da IA não é JSON válido");
+            }
+
+            // Normaliza para garantir que temos sempre { items: [...] }
+            if (!data.items) {
+                if (Array.isArray(data)) {
+                    data = { items: data };
+                } else if (data.transacoes) {
+                    data = { items: data.transacoes };
+                } else if (data.transactions) {
+                    data = { items: data.transactions };
+                } else {
+                    // Procura qualquer array na resposta
+                    const arrVal = Object.values(data).find(v => Array.isArray(v));
+                    if (arrVal) {
+                        data = { items: arrVal };
+                    } else if (data.desc || data.descricao || data.item || data.amount || data.valor) {
+                        // Resposta com item único
+                        data = { items: [data] };
+                    } else {
+                        data = { items: [] };
+                    }
+                }
+            }
+
+            // Normaliza campos de cada item
+            data.items = (data.items || []).map(i => ({
+                desc: i.desc || i.descricao || i.item || i.description || i.nome || "Sem descrição",
+                amount: parseFloat(i.amount || i.total || i.valor || i.value || i.preco || 0),
+                category: i.category || i.categoria || "Outros",
+                method: i.method || i.metodo || i.pagamento || "Dinheiro/Pix",
+                bank: i.bank || i.banco || ""
+            })).filter(i => i.amount > 0 || i.desc !== "Sem descrição");
 
             if (onSuccess) onSuccess(data);
         } catch (e) {

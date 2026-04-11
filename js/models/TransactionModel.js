@@ -5,12 +5,18 @@ import {
     onSnapshot, writeBatch
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-const getRef = (uid) => collection(db, 'artifacts', APP_ID, 'users', uid, 'transactions');
-const getDocRef = (uid, id) => doc(db, 'artifacts', APP_ID, 'users', uid, 'transactions', id);
+// Retorna a coleção correta: pessoal ou espaço partilhado
+const getActiveRef = (uid, spaceId = null) => spaceId
+    ? collection(db, 'artifacts', APP_ID, 'sharedSpaces', spaceId, 'transactions')
+    : collection(db, 'artifacts', APP_ID, 'users', uid, 'transactions');
+
+const getActiveDocRef = (uid, id, spaceId = null) => spaceId
+    ? doc(db, 'artifacts', APP_ID, 'sharedSpaces', spaceId, 'transactions', id)
+    : doc(db, 'artifacts', APP_ID, 'users', uid, 'transactions', id);
 
 export const TransactionModel = {
-    async add(uid, { desc, amount, category, installments = 1, method = "Dinheiro/Pix", dateKey = currentMonthKey, bank = "" }) {
-        const ref = getRef(uid);
+    async add(uid, { desc, amount, category, installments = 1, method = "Dinheiro/Pix", dateKey = currentMonthKey, bank = "", clientId = "" }, spaceId = null) {
+        const ref = getActiveRef(uid, spaceId);
         const part = amount / installments;
         for (let i = 0; i < installments; i++) {
             const isPaid = (method === "Dinheiro/Pix" || method === "Cartão Débito" || category === "Receita");
@@ -20,6 +26,7 @@ export const TransactionModel = {
                 category,
                 method,
                 bank,
+                clientId: clientId || "",
                 monthKey: dateKey,
                 paid: isPaid,
                 creator: uid,
@@ -28,22 +35,22 @@ export const TransactionModel = {
         }
     },
 
-    async togglePaid(uid, transaction) {
-        await updateDoc(getDocRef(uid, transaction.id), { paid: !transaction.paid });
+    async togglePaid(uid, transaction, spaceId = null) {
+        await updateDoc(getActiveDocRef(uid, transaction.id, spaceId), { paid: !transaction.paid });
     },
 
-    async delete(uid, id) {
-        await deleteDoc(getDocRef(uid, id));
+    async delete(uid, id, spaceId = null) {
+        await deleteDoc(getActiveDocRef(uid, id, spaceId));
     },
 
-    async clearAll(uid, transactions) {
+    async clearAll(uid, transactions, spaceId = null) {
         const batch = writeBatch(db);
-        transactions.forEach(t => batch.delete(getDocRef(uid, t.id)));
+        transactions.forEach(t => batch.delete(getActiveDocRef(uid, t.id, spaceId)));
         await batch.commit();
     },
 
-    subscribe(uid, callback) {
-        return onSnapshot(getRef(uid), (snap) => {
+    subscribe(uid, callback, spaceId = null) {
+        return onSnapshot(getActiveRef(uid, spaceId), (snap) => {
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             callback(data);
         });

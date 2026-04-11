@@ -17,6 +17,11 @@ export class TransactionController {
         this._bindSummaryActions();
     }
 
+    // Devolve o spaceId activo (null se modo pessoal)
+    _activeSpaceId() {
+        return (state.viewMode === 'shared' && state.sharedSpaceId) ? state.sharedSpaceId : null;
+    }
+
     startSync() {
         const uid = state.currentUser?.uid;
         if (!uid) return;
@@ -26,11 +31,17 @@ export class TransactionController {
         state.unsubscribeTrans = TransactionModel.subscribe(uid, (data) => {
             state.transactions = data;
             this.refreshDashboard();
-        });
+        }, this._activeSpaceId());
     }
 
     stopSync() {
         if (state.unsubscribeTrans) { state.unsubscribeTrans(); state.unsubscribeTrans = null; }
+    }
+
+    // Reinicia sync quando muda de modo (pessoal/partilhado)
+    restartSync() {
+        this.stopSync();
+        this.startSync();
     }
 
     refreshDashboard() {
@@ -61,13 +72,34 @@ export class TransactionController {
             const monthOptions = Array.from(monthFilter.options).map(o => o.value);
             DashboardView.updateChart(state.chart, monthOptions, state.transactions, currentMonthKey);
         }
+
+        // Actualiza gráfico de pizza e barras de meta
+        DashboardView.updatePieChart(state.pieChart, filtered);
+        DashboardView.renderBudgetBars(filtered, state.budgets);
+
+        // Actualiza selector de clientes no formulário
+        this._refreshClientSelector();
+    }
+
+    _refreshClientSelector() {
+        const sel = document.getElementById('client-id-select');
+        if (!sel) return;
+        const current = sel.value;
+        sel.innerHTML = '<option value="">Sem cliente vinculado</option>';
+        state.clients.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.innerText = `${c.name} (${c.docFormatted || c.doc})`;
+            sel.appendChild(opt);
+        });
+        if (current) sel.value = current;
     }
 
     async togglePaid(id) {
         const uid = state.currentUser?.uid;
         if (!uid) return;
         const item = state.transactions.find(t => t.id === id);
-        if (item) await TransactionModel.togglePaid(uid, item);
+        if (item) await TransactionModel.togglePaid(uid, item, this._activeSpaceId());
     }
 
     confirmDelete(id) {
@@ -81,22 +113,22 @@ export class TransactionController {
 
     async delete(id) {
         const uid = state.currentUser?.uid;
-        if (uid) await TransactionModel.delete(uid, id);
+        if (uid) await TransactionModel.delete(uid, id, this._activeSpaceId());
     }
 
     async clearAll() {
         const uid = state.currentUser?.uid;
-        if (uid) await TransactionModel.clearAll(uid, state.transactions);
+        if (uid) await TransactionModel.clearAll(uid, state.transactions, this._activeSpaceId());
     }
 
     async addTransaction(data) {
         const uid = state.currentUser?.uid;
-        if (!uid) { ModalView.showToast("Erro: utilizador não autenticado."); return; }
+        if (!uid) { ModalView.showToast("Erro: utilizador não autenticado.", 'error'); return; }
         try {
-            await TransactionModel.add(uid, data);
+            await TransactionModel.add(uid, data, this._activeSpaceId());
         } catch (e) {
             console.error("Erro ao guardar transação:", e);
-            ModalView.showToast("Erro ao guardar: " + (e.message || e.code || "verifique a consola."));
+            ModalView.showToast("Erro ao guardar: " + (e.message || e.code || "verifique a consola."), 'error');
         }
     }
 
@@ -105,15 +137,27 @@ export class TransactionController {
         if (!form) return;
         form.onsubmit = async (e) => {
             e.preventDefault();
-            const desc = document.getElementById('desc')?.value;
+            const desc = document.getElementById('desc')?.value?.trim();
             const amount = parseFloat(document.getElementById('amount')?.value || 0);
             const category = document.getElementById('category')?.value;
             const method = document.getElementById('method')?.value;
-            const bank = document.getElementById('bank-input')?.value;
-            if (desc && amount) {
-                await this.addTransaction({ desc, amount, category, method, bank, dateKey: this.getSelectedMonth() });
-                form.reset();
+            const bank = document.getElementById('bank-input')?.value?.trim();
+            const installments = parseInt(document.getElementById('installments')?.value || 1);
+            const clientId = document.getElementById('client-id-select')?.value || "";
+
+            if (!desc || !amount || amount <= 0) {
+                ModalView.showToast("Preenche a descrição e o valor.", 'error');
+                return;
             }
+
+            await this.addTransaction({
+                desc, amount, category, method, bank,
+                installments: installments > 1 ? installments : 1,
+                clientId,
+                dateKey: this.getSelectedMonth()
+            });
+            form.reset();
+            ModalView.showToast("Transação guardada!", 'success');
         };
 
         const clearBtn = document.querySelector('[onclick="openConfirmModal(\'clearAll\')"]');
@@ -133,16 +177,24 @@ export class TransactionController {
         if (!aiBtn) return;
         aiBtn.onclick = async () => {
             const inputEl = document.getElementById('ai-input');
-            if (!inputEl?.value) return;
-            await this._processAI(inputEl.value, false);
+            if (!inputEl?.value?.trim()) return;
+            await this._processAI(inputEl.value.trim(), false);
         };
+
+        // Permite submeter com Enter
+        document.getElementById('ai-input')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('ai-submit')?.click();
+            }
+        });
     }
 
     _bindImportModal() {
         const importBtn = document.getElementById('import-process-btn');
         if (!importBtn) return;
         importBtn.onclick = async () => {
-            const text = document.getElementById('import-text')?.value;
+            const text = document.getElementById('import-text')?.value?.trim();
             if (text) await this._processAI(text, true);
         };
     }
@@ -167,7 +219,8 @@ export class TransactionController {
             copyBtn.onclick = () => {
                 const contentEl = document.getElementById('summary-content');
                 if (contentEl) {
-                    navigator.clipboard.writeText(contentEl.innerText).then(() => ModalView.showToast("Copiado com sucesso!"));
+                    navigator.clipboard.writeText(contentEl.innerText)
+                        .then(() => ModalView.showToast("Copiado com sucesso!", 'success'));
                 }
             };
         }
@@ -179,39 +232,39 @@ export class TransactionController {
 
         await AIService.process(text, {
             onSuccess: async (data) => {
-                const items = data.items || data.transacoes || data.transactions || (Array.isArray(data) ? data : null);
-                if (items && items.length > 0) {
-                    for (const i of items) {
-                        await this.addTransaction({
-                            desc: i.desc || i.descricao || i.item || i.description || "Sem descrição",
-                            amount: parseFloat(i.total || i.valor || i.amount || i.value || 0),
-                            category: i.category || i.categoria || "Outros",
-                            method: i.method || i.metodo || "Dinheiro/Pix",
-                            dateKey: currentMonthKey,
-                            bank: i.bank || i.banco || ""
-                        });
-                    }
-                    ModalView.showToast("Processado com sucesso!");
-                } else if (data.desc || data.descricao || data.item) {
-                    await this.addTransaction({
-                        desc: data.desc || data.descricao || data.item || "Sem descrição",
-                        amount: parseFloat(data.total || data.valor || data.amount || 0),
-                        category: data.category || data.categoria || "Outros",
-                        method: data.method || data.metodo || "Dinheiro/Pix",
-                        dateKey: currentMonthKey,
-                        bank: data.bank || data.banco || ""
-                    });
-                    ModalView.showToast("Processado com sucesso!");
-                } else {
-                    console.warn("Resposta do Ollama sem estrutura reconhecida:", data);
-                    ModalView.showToast("IA não reconheceu o formato. Tenta ser mais específico.");
+                const items = data.items || [];
+                if (items.length === 0) {
+                    ModalView.showToast("IA não conseguiu extrair dados. Tenta ser mais específico.", 'error');
+                    DashboardView.setOllamaStatus(true);
+                    return;
                 }
+
+                // Mostra modal de confirmação antes de guardar
+                const confirmed = await ModalView.openAIConfirmModal(items);
+                if (!confirmed) {
+                    ModalView.showToast("Operação cancelada.");
+                    return;
+                }
+
+                const selectedMonth = this.getSelectedMonth();
+                for (const i of items) {
+                    await this.addTransaction({
+                        desc: i.desc,
+                        amount: i.amount,
+                        category: i.category,
+                        method: i.method,
+                        dateKey: selectedMonth,  // ← usa o mês seleccionado, não o mês actual
+                        bank: i.bank
+                    });
+                }
+
+                ModalView.showToast(`${items.length} item(s) adicionado(s)!`, 'success');
                 if (isImport) ModalView.closeImportModal();
                 else { const el = document.getElementById('ai-input'); if (el) el.value = ''; }
                 DashboardView.setOllamaStatus(true);
             },
             onError: () => {
-                ModalView.showToast("Erro de Ligação: Corre '$env:OLLAMA_ORIGINS=\"*\"; ollama serve' no terminal.");
+                ModalView.showToast("Erro: Ollama offline. Corre '$env:OLLAMA_ORIGINS=\"*\"; ollama serve' no terminal.", 'error');
                 DashboardView.setOllamaStatus(false);
             },
             onEnd: () => {
