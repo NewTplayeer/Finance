@@ -90,6 +90,12 @@
                             <button id="btn-mode-shared" class="px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 hover:bg-slate-100 transition-all" title="Precisa de um espaço partilhado configurado">Partilhado</button>
                         </div>
 
+                        <!-- Open Finance -->
+                        <button id="btn-open-finance" class="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-bold uppercase hover:bg-emerald-100 transition-all" title="Importar dados do banco via Open Finance">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            Open Finance
+                        </button>
+
                         <!-- Filtro de Mês -->
                         <select id="month-filter" class="bg-slate-50 px-4 py-2 rounded-xl font-bold text-slate-700 focus:outline-none border border-slate-200 text-sm"></select>
 
@@ -480,6 +486,79 @@
             <div class="flex flex-col gap-3 mt-8">
                 <button onclick="saveEditClient()" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl">Salvar Alterações</button>
                 <button onclick="document.getElementById('client-modal').classList.add('hidden')" class="w-full py-4 text-slate-400 font-bold text-sm transition hover:text-slate-600">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL OPEN FINANCE (Pluggy) -->
+    <div id="openfinance-modal" class="fixed inset-0 z-[600] hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-white rounded-[2.5rem] max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="p-8">
+                <!-- Cabeçalho -->
+                <div class="flex items-start justify-between mb-6">
+                    <div>
+                        <h3 class="text-2xl font-bold text-slate-900 tracking-tight">Open Finance</h3>
+                        <p class="text-xs text-slate-400 mt-1">Importa transações directamente do teu banco via Pluggy.ai</p>
+                    </div>
+                    <button id="openfinance-modal-close" class="text-slate-300 hover:text-slate-600 transition-colors mt-1">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Aviso de configuração -->
+                <div id="openfinance-config-warning" class="hidden mb-5 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                    <p class="text-xs font-bold text-amber-700 mb-1">⚠️ Credenciais não configuradas</p>
+                    <p class="text-xs text-amber-600">Abre <code class="bg-amber-100 px-1 rounded font-mono">js/config.js</code> e preenche <code class="bg-amber-100 px-1 rounded font-mono">pluggyConfig</code> com o teu <strong>clientId</strong> e <strong>clientSecret</strong> do <a href="https://pluggy.ai" target="_blank" class="underline font-bold">Pluggy.ai</a>.</p>
+                </div>
+
+                <!-- PASSO 1: Conectar banco -->
+                <div id="openfinance-step-connect">
+                    <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-6 mb-5 text-center">
+                        <div class="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-700 mb-1">Conecta o teu banco</p>
+                        <p class="text-xs text-slate-400">Nubank, Itaú, Bradesco, Inter, C6 e mais de 200 instituições</p>
+                    </div>
+                    <button id="openfinance-connect-btn" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 mb-3">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        Conectar Banco
+                    </button>
+                </div>
+
+                <!-- PASSO 2: Seleccionar contas e período -->
+                <div id="openfinance-step-accounts" class="hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Contas ligadas</h4>
+                        <button id="openfinance-disconnect-btn" class="text-[10px] text-rose-500 font-bold hover:text-rose-700">Desligar banco</button>
+                    </div>
+                    <div id="openfinance-accounts-list" class="space-y-2 mb-5"></div>
+
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Período de importação</h4>
+                    <div class="grid grid-cols-2 gap-3 mb-5">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">De</label>
+                            <input type="date" id="openfinance-date-from" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-400">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">Até</label>
+                            <input type="date" id="openfinance-date-to" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-400">
+                        </div>
+                    </div>
+
+                    <button id="openfinance-import-btn" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition shadow-xl shadow-emerald-100 flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        Importar Transações
+                    </button>
+                </div>
+
+                <!-- Status -->
+                <p id="openfinance-status" class="text-xs text-slate-400 text-center mt-4 min-h-[1rem]"></p>
+
+                <!-- Rodapé informativo -->
+                <div class="mt-5 pt-4 border-t border-slate-100 text-center">
+                    <p class="text-[10px] text-slate-300">Powered by <a href="https://pluggy.ai" target="_blank" class="font-bold hover:text-emerald-500 transition-colors">Pluggy.ai</a> · Open Finance Brasil</p>
+                </div>
             </div>
         </div>
     </div>

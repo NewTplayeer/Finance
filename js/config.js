@@ -16,3 +16,9 @@ export const ollamaConfig = {
 export const APP_ID = 'bruno-financas-v3-auth';
 
 export const currentMonthKey = new Date().toISOString().slice(0, 7);
+
+// Open Finance (Pluggy.ai) — regista em https://pluggy.ai e adiciona as tuas credenciais
+export const pluggyConfig = {
+    clientId:     '',   // ex: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+    clientSecret: ''    // ex: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+};
