@@ -1,11 +1,16 @@
 export const ModalView = {
-    showToast(msg) {
+    showToast(msg, type = 'info') {
         const t = document.getElementById('toast');
         const tm = document.getElementById('toast-message');
+        const icon = document.getElementById('toast-icon');
         if (!t || !tm) return;
         tm.innerText = msg;
+        if (icon) {
+            icon.className = `w-2 h-2 rounded-full animate-pulse ${type === 'error' ? 'bg-rose-500' : type === 'success' ? 'bg-emerald-500' : 'bg-indigo-500'}`;
+        }
         t.classList.remove('translate-y-32', 'opacity-0');
-        setTimeout(() => t.classList.add('translate-y-32', 'opacity-0'), 7000);
+        clearTimeout(t._hideTimer);
+        t._hideTimer = setTimeout(() => t.classList.add('translate-y-32', 'opacity-0'), 6000);
     },
 
     openConfirmModal({ title = "Confirmar", message, onConfirm, confirmLabel = "Sim, eliminar", confirmClass = "w-full py-4 bg-rose-600 text-white font-bold rounded-2xl transition hover:bg-rose-700" }) {
@@ -32,6 +37,37 @@ export const ModalView = {
         btns.appendChild(b1);
         btns.appendChild(b2);
         m.classList.remove('hidden');
+    },
+
+    // Modal de confirmação para resultados da IA — devolve Promise<boolean>
+    openAIConfirmModal(items) {
+        return new Promise((resolve) => {
+            const m = document.getElementById('ai-confirm-modal');
+            const list = document.getElementById('ai-confirm-list');
+            if (!m || !list) { resolve(true); return; }
+
+            const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            list.innerHTML = items.map((i, idx) => `
+                <div class="flex items-center justify-between p-3 bg-slate-50 dark-card rounded-xl gap-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-sm text-slate-800 truncate">${i.desc}</div>
+                        <div class="text-xs text-slate-400 mt-0.5">${i.category} · ${i.method}${i.bank ? ' · ' + i.bank : ''}</div>
+                    </div>
+                    <div class="font-bold text-sm shrink-0 ${i.category === 'Receita' ? 'text-emerald-600' : 'text-slate-900'}">${fmt(i.amount)}</div>
+                </div>
+            `).join('');
+
+            const okBtn = document.getElementById('ai-confirm-ok');
+            const cancelBtn = document.getElementById('ai-confirm-cancel');
+
+            const cleanup = () => { m.classList.add('hidden'); };
+
+            if (okBtn) okBtn.onclick = () => { cleanup(); resolve(true); };
+            if (cancelBtn) cancelBtn.onclick = () => { cleanup(); resolve(false); };
+
+            m.classList.remove('hidden');
+        });
     },
 
     openProfileModal(userName, pin) {

@@ -18,5 +18,14 @@ export const UserModel = {
         return onSnapshot(getPrefsRef(uid), (snap) => {
             callback(snap.exists() ? snap.data() : null);
         });
+    },
+
+    async saveBudgets(uid, budgets) {
+        await setDoc(getPrefsRef(uid), { budgets }, { merge: true });
+    },
+
+    async getBudgets(uid) {
+        const prefs = await this.getPrefs(uid);
+        return prefs?.budgets || {};
     }
 };

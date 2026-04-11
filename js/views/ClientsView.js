@@ -6,9 +6,9 @@ const TYPE_BADGE = {
 
 export const ClientsView = {
     render(clients, search = '', { onEdit, onDelete } = {}) {
-        const tbody = document.getElementById('clients-list');
+        const oldTbody = document.getElementById('clients-list');
         const countEl = document.getElementById('clients-count');
-        if (!tbody) return;
+        if (!oldTbody) return;
 
         const filtered = clients.filter(c =>
             (c.name || '').toLowerCase().includes(search) ||
@@ -18,12 +18,15 @@ export const ClientsView = {
 
         if (countEl) countEl.innerText = `(${filtered.length})`;
 
+        // Substitui tbody para remover todos os event listeners anteriores
+        const tbody = oldTbody.cloneNode(false);
+        oldTbody.parentNode.replaceChild(tbody, oldTbody);
+
         if (!filtered.length) {
             tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400 italic font-medium">Nenhum cliente/fornecedor encontrado.</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = '';
         filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(c => {
             const badge = TYPE_BADGE[c.type] || 'bg-slate-100 text-slate-500';
             const tr = document.createElement('tr');
@@ -57,7 +60,7 @@ export const ClientsView = {
             const deleteBtn = e.target.closest('[data-action="delete-client"]');
             if (editBtn && onEdit) onEdit(editBtn.dataset.id);
             if (deleteBtn && onDelete) onDelete(deleteBtn.dataset.id);
-        }, { once: true });
+        });
     },
 
     openEditModal(client) {

@@ -4,10 +4,15 @@ import { AuthController } from './controllers/AuthController.js';
 import { TransactionController } from './controllers/TransactionController.js';
 import { ClientsController } from './controllers/ClientsController.js';
 import { NavigationController } from './controllers/NavigationController.js';
+import { SharingController } from './controllers/SharingController.js';
 
 // --- Inicialização dos Controllers ---
 const navController = new NavigationController({
-    onMonthChange: () => transactionController.refreshDashboard()
+    onMonthChange: () => transactionController.refreshDashboard(),
+    onModeChange: (mode) => {
+        transactionController.restartSync();
+        DashboardView.updateViewModeUI(mode);
+    }
 });
 
 const transactionController = new TransactionController({
@@ -15,6 +20,13 @@ const transactionController = new TransactionController({
 });
 
 const clientsController = new ClientsController();
+
+const sharingController = new SharingController({
+    onModeChange: (mode) => {
+        transactionController.restartSync();
+        DashboardView.updateViewModeUI(mode);
+    }
+});
 
 const authController = new AuthController({
     onLogin: () => {
@@ -29,16 +41,21 @@ const authController = new AuthController({
 
 // --- Bootstrap ---
 window.addEventListener('DOMContentLoaded', () => {
-    // Inicializar gráfico
+    // Inicializar gráficos
     const canvas = document.getElementById('projectionChart');
     if (canvas) {
         state.chart = DashboardView.initChart(canvas);
     }
+    const pieCanvas = document.getElementById('pieChart');
+    if (pieCanvas) {
+        state.pieChart = DashboardView.initPieChart(pieCanvas);
+    }
 
-    // Inicializar navegação e formulários
+    // Inicializar controllers
     navController.init();
     transactionController.init();
     clientsController.init();
+    sharingController.init();
 
     // Botões do modal de perfil
     const saveProfileBtn = document.querySelector('[onclick="saveProfile()"]');
@@ -59,6 +76,6 @@ window.addEventListener('DOMContentLoaded', () => {
         openProfileBtn.onclick = () => authController.openProfileModal();
     }
 
-    // Iniciar autenticação (inicia onAuthStateChanged -> sync)
+    // Iniciar autenticação
     authController.init();
 });
