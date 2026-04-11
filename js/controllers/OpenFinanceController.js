@@ -2,7 +2,12 @@ import { OpenFinanceService } from '../services/OpenFinanceService.js';
 import { ModalView } from '../views/ModalView.js';
 import { pluggyConfig } from '../config.js';
 
-const PLUGGY_CONNECT_SDK = 'https://cdn.pluggy.ai/pluggy-connect/v2.1.10/pluggy-connect.min.js';
+// URLs tentadas em sequência até uma carregar com sucesso
+const PLUGGY_SDK_URLS = [
+    'https://cdn.pluggy.ai/pluggy-connect/v2.2.0/pluggy-connect.min.js',
+    'https://cdn.pluggy.ai/pluggy-connect/v2.1.0/pluggy-connect.min.js',
+    'https://unpkg.com/@pluggy/connect@latest/dist/pluggy-connect.min.js',
+];
 
 export class OpenFinanceController {
     constructor({ onImport }) {
@@ -92,7 +97,7 @@ export class OpenFinanceController {
 
             await this._loadPluggySDK();
 
-            new window.PluggyConnect({
+            const instance = new window.PluggyConnect({
                 connectToken,
                 onSuccess: async ({ item }) => {
                     this._itemId = item.id;
@@ -102,13 +107,17 @@ export class OpenFinanceController {
                     setStatus(`${this._accounts.length} conta(s) ligada(s). Seleciona e importa.`);
                 },
                 onError: ({ error }) => {
-                    ModalView.showToast('Erro na conexão: ' + error, 'error');
+                    ModalView.showToast('Erro na conexão: ' + (error?.message || error), 'error');
                     setStatus('Erro ao conectar. Tenta novamente.');
                 },
                 onClose: () => {
                     if (!this._itemId) setStatus('');
                 }
-            }).init();
+            });
+            // Compatível com v2.x (.init) e v2.2+ (.open)
+            if (typeof instance.open === 'function')       instance.open();
+            else if (typeof instance.init === 'function')  instance.init();
+            else throw new Error('SDK Pluggy sem método de abertura reconhecido.');
 
         } catch (e) {
             ModalView.showToast(e.message, 'error');
@@ -121,11 +130,26 @@ export class OpenFinanceController {
     _loadPluggySDK() {
         return new Promise((resolve, reject) => {
             if (window.PluggyConnect) { resolve(); return; }
-            const s = document.createElement('script');
-            s.src = PLUGGY_CONNECT_SDK;
-            s.onload  = resolve;
-            s.onerror = () => reject(new Error('Não foi possível carregar o SDK do Pluggy.'));
-            document.head.appendChild(s);
+
+            let idx = 0;
+            const tryNext = () => {
+                if (idx >= PLUGGY_SDK_URLS.length) {
+                    reject(new Error(
+                        'Não foi possível carregar o SDK do Pluggy. ' +
+                        'Verifica a tua ligação e se o Pluggy está disponível em pluggy.ai.'
+                    ));
+                    return;
+                }
+                const s = document.createElement('script');
+                s.src = PLUGGY_SDK_URLS[idx++];
+                s.onload = () => {
+                    if (window.PluggyConnect) resolve();
+                    else { s.remove(); tryNext(); }   // carregou mas sem o global
+                };
+                s.onerror = () => { s.remove(); tryNext(); };
+                document.head.appendChild(s);
+            };
+            tryNext();
         });
     }
 
