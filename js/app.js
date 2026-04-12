@@ -6,6 +6,7 @@ import { ClientsController } from './controllers/ClientsController.js';
 import { NavigationController } from './controllers/NavigationController.js';
 import { SharingController } from './controllers/SharingController.js';
 import { OpenFinanceController } from './controllers/OpenFinanceController.js';
+import { CardController } from './controllers/CardController.js';
 
 // --- Inicialização dos Controllers ---
 const navController = new NavigationController({
@@ -33,10 +34,14 @@ const openFinanceController = new OpenFinanceController({
     onImport: (t) => transactionController.addTransaction(t)
 });
 
+const cardController = new CardController();
+
 const authController = new AuthController({
-    onLogin: () => {
+    onLogin: async (user) => {
         transactionController.startSync();
         clientsController.startSync();
+        await cardController.loadCards(user.uid);
+        transactionController.refreshCategorySelectors();
     },
     onLogout: () => {
         transactionController.stopSync();
@@ -66,6 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
     clientsController.init();
     sharingController.init();
     openFinanceController.init();
+    cardController.init();
 
     // Botões do modal de perfil
     const saveProfileBtn = document.querySelector('[onclick="saveProfile()"]');

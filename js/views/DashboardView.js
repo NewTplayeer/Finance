@@ -15,7 +15,7 @@ export const DashboardView = {
         }
     },
 
-    renderTransactionList(list, { onTogglePaid, onDelete }) {
+    renderTransactionList(list, { onTogglePaid, onDelete, onEdit }) {
         const oldTbody = document.getElementById('transaction-list');
         if (!oldTbody) return;
 
@@ -50,9 +50,14 @@ export const DashboardView = {
                 <td class="px-8 py-5 text-center uppercase text-[10px] font-bold text-slate-500">${t.method}</td>
                 <td class="px-8 py-5 text-right font-bold ${isInc ? 'text-emerald-600' : 'text-slate-900'}">${isInc ? '+' : ''} ${fmt(t.amount)}</td>
                 <td class="px-8 py-5 text-center">
-                    <button data-action="delete-transaction" data-id="${t.id}" title="Eliminar" class="text-slate-300 hover:text-rose-500 transition-colors">
-                        <svg class="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    </button>
+                    <div class="flex items-center justify-center gap-3">
+                        <button data-action="edit-transaction" data-id="${t.id}" title="Editar" class="text-slate-300 hover:text-indigo-500 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
+                        <button data-action="delete-transaction" data-id="${t.id}" title="Eliminar" class="text-slate-300 hover:text-rose-500 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -62,8 +67,10 @@ export const DashboardView = {
         tbody.addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('[data-action="toggle-paid"]');
             const deleteBtn = e.target.closest('[data-action="delete-transaction"]');
+            const editBtn   = e.target.closest('[data-action="edit-transaction"]');
             if (toggleBtn && onTogglePaid) onTogglePaid(toggleBtn.dataset.id);
-            if (deleteBtn && onDelete) onDelete(deleteBtn.dataset.id);
+            if (deleteBtn && onDelete)     onDelete(deleteBtn.dataset.id);
+            if (editBtn   && onEdit)       onEdit(editBtn.dataset.id);
         });
     },
 
