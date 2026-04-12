@@ -6,6 +6,24 @@
 /** Formata valor para moeda BRL */
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+/** Formata data ISO (YYYY-MM-DD) para dd/mm */
+const fmtDate = (iso) => {
+    if (!iso) return '—';
+    const [, m, d] = iso.slice(0, 10).split('-');
+    return `${d}/${m}`;
+};
+
+/**
+ * Devolve a data de referência da transação para ordenação.
+ * Usa t.date se existir, caso contrário extrai de createdAt, e por último usa o monthKey.
+ * @param {Object} t
+ * @returns {string} YYYY-MM-DD
+ */
+const getTransDate = (t) =>
+    t.date
+    || (t.createdAt ? t.createdAt.slice(0, 10) : null)
+    || (t.monthKey ? `${t.monthKey}-01` : '1970-01-01');
+
 export const DashboardView = {
     /**
      * Actualiza os cards de métricas no topo do dashboard.
@@ -29,8 +47,9 @@ export const DashboardView = {
      * Renderiza a tabela de transações, substituindo o tbody para evitar duplicação de listeners.
      * @param {Array} list - transações a mostrar
      * @param {{ onTogglePaid, onDelete, onEdit }} callbacks
+     * @param {'newest'|'oldest'|'highest'|'lowest'} sortBy - critério de ordenação
      */
-    renderTransactionList(list, { onTogglePaid, onDelete, onEdit }) {
+    renderTransactionList(list, { onTogglePaid, onDelete, onEdit }, sortBy = 'newest') {
         const oldTbody = document.getElementById('transaction-list');
         if (!oldTbody) return;
 
@@ -39,14 +58,22 @@ export const DashboardView = {
         oldTbody.parentNode.replaceChild(tbody, oldTbody);
 
         if (!list.length) {
-            tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400 italic font-medium">Sem movimentos este mês.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-slate-400 italic font-medium">Sem movimentos este mês.</td></tr>`;
             return;
         }
 
+        /* Ordenação */
+        const sorted = [...list];
+        if      (sortBy === 'oldest')  sorted.sort((a, b) => getTransDate(a).localeCompare(getTransDate(b)));
+        else if (sortBy === 'highest') sorted.sort((a, b) => b.amount - a.amount);
+        else if (sortBy === 'lowest')  sorted.sort((a, b) => a.amount - b.amount);
+        else /* newest */              sorted.sort((a, b) => getTransDate(b).localeCompare(getTransDate(a)));
+
         tbody.innerHTML = '';
-        list.sort((a, b) => a.paid - b.paid).forEach(t => {
-            const isInc = t.category === 'Receita';
-            const tr    = document.createElement('tr');
+        sorted.forEach(t => {
+            const isInc  = t.category === 'Receita';
+            const tDate  = getTransDate(t);
+            const tr     = document.createElement('tr');
             tr.className = `transition-all ${isInc ? 'income-row' : (t.paid ? 'paid-row' : 'hover:bg-slate-50/50')}`;
             tr.innerHTML = `
                 <td class="px-4 sm:px-8 py-4 sm:py-5">
@@ -64,6 +91,7 @@ export const DashboardView = {
                         ${t.clientId ? `<span class="bank-badge bg-indigo-50 text-indigo-500">Cliente</span>` : ''}
                     </div>
                 </td>
+                <td class="hidden md:table-cell px-6 py-5 text-center text-xs font-semibold text-slate-500">${fmtDate(tDate)}</td>
                 <td class="hidden sm:table-cell px-8 py-5 text-center uppercase text-[10px] font-bold text-slate-500">${t.method}</td>
                 <td class="px-4 sm:px-8 py-4 sm:py-5 text-right font-bold ${isInc ? 'text-emerald-600' : 'text-slate-900'}">${isInc ? '+' : ''} ${fmt(t.amount)}</td>
                 <td class="px-4 sm:px-8 py-4 sm:py-5 text-center">

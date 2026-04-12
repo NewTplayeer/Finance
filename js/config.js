@@ -29,6 +29,14 @@ export const DEFAULT_METHODS = [
     'Dinheiro/Pix', 'Cartão Débito', 'Cartão', 'Boleto'
 ];
 
+/**
+ * E-mails com acesso ao painel de administração.
+ * Adiciona o teu e-mail aqui para aceder ao painel Admin.
+ */
+export const ADMIN_EMAILS = [
+    'brunonunes14@gmail.com'
+];
+
 // Open Finance (Pluggy.ai) — regista em https://pluggy.ai e adiciona as tuas credenciais
 export const pluggyConfig = {
     clientId:     '329a3f3a-ce45-49f2-b9c4-252ac6824718',   // ex: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'

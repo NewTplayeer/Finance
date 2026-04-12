@@ -14,6 +14,7 @@ import { CardController } from './controllers/CardController.js';
 import { SavingsController } from './controllers/SavingsController.js';
 import { LoanController } from './controllers/LoanController.js';
 import { AnalyticsController } from './controllers/AnalyticsController.js';
+import { AdminController } from './controllers/AdminController.js';
 
 /** Controller de navegação: gere o filtro de mês, tabs e modo pessoal/partilhado */
 const navController = new NavigationController({
@@ -22,7 +23,8 @@ const navController = new NavigationController({
         transactionController.restartSync();
         DashboardView.updateViewModeUI(mode);
     },
-    onAnalyticsTab: () => analyticsController.render()
+    onAnalyticsTab: () => analyticsController.render(),
+    onAdminTab:     () => adminController.render()
 });
 
 /** Controller de transações: CRUD, dashboard e processamento IA */
@@ -58,6 +60,9 @@ const loanController = new LoanController();
 /** Controller de análise e estatísticas globais */
 const analyticsController = new AnalyticsController();
 
+/** Controller do painel de administração (apenas admins) */
+const adminController = new AdminController();
+
 /** Controller de autenticação — inicia todos os syncs ao fazer login */
 const authController = new AuthController({
     onLogin: async (user) => {
@@ -68,12 +73,14 @@ const authController = new AuthController({
         await cardController.loadCards(user.uid);
         transactionController.refreshCategorySelectors();
         transactionController.refreshMethodSelectors();
+        adminController.onLogin(user);
     },
     onLogout: () => {
         transactionController.stopSync();
         clientsController.stopSync();
         savingsController.stopSync();
         loanController.stopSync();
+        adminController.onLogout();
     }
 });
 
@@ -103,6 +110,7 @@ window.addEventListener('DOMContentLoaded', () => {
     savingsController.init();
     loanController.init();
     analyticsController.init();
+    adminController.init();
 
     // Botões do modal de perfil
     const saveProfileBtn = document.querySelector('[onclick="saveProfile()"]');

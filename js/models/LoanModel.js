@@ -18,18 +18,20 @@ export const LoanModel = {
     /**
      * Regista um novo empréstimo.
      * @param {string} uid
-     * @param {{ debtor, amount, interestRate, startDate, dueDate, method, notes }} data
+     * @param {{ debtor, amount, interestRate, startDate, dueDate, installments, paymentDay, method, notes }} data
      */
-    async add(uid, { debtor, amount, interestRate = 0, startDate, dueDate, method = 'Dinheiro', notes = '' }) {
+    async add(uid, { debtor, amount, interestRate = 0, startDate, dueDate, installments = 1, paymentDay = null, method = 'Dinheiro', notes = '' }) {
         await addDoc(getRef(uid), {
             debtor,
-            amount: parseFloat(amount),
+            amount:       parseFloat(amount),
             interestRate: parseFloat(interestRate) || 0,
             startDate,
             dueDate,
+            installments: parseInt(installments) || 1,
+            paymentDay:   paymentDay ? parseInt(paymentDay) : null,
             method,
             notes,
-            paid: false,
+            paid:      false,
             createdAt: new Date().toISOString()
         });
     },

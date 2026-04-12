@@ -7,12 +7,13 @@ import { state } from '../state.js';
 
 export class NavigationController {
     /**
-     * @param {{ onMonthChange: function, onModeChange: function, onAnalyticsTab: function }} options
+     * @param {{ onMonthChange: function, onModeChange: function, onAnalyticsTab: function, onAdminTab: function }} options
      */
-    constructor({ onMonthChange, onModeChange, onAnalyticsTab }) {
+    constructor({ onMonthChange, onModeChange, onAnalyticsTab, onAdminTab }) {
         this.onMonthChange  = onMonthChange;
         this.onModeChange   = onModeChange;
         this.onAnalyticsTab = onAnalyticsTab;
+        this.onAdminTab     = onAdminTab;
     }
 
     /** Inicializa todos os controlos de navegação */
@@ -59,6 +60,7 @@ export class NavigationController {
         const tabDash      = document.getElementById('tab-dashboard');
         const tabClients   = document.getElementById('tab-clients');
         const tabAnalytics = document.getElementById('tab-analytics');
+        const tabAdmin     = document.getElementById('tab-admin');
 
         if (tabDash) {
             tabDash.removeAttribute('onclick');
@@ -72,27 +74,33 @@ export class NavigationController {
             tabAnalytics.removeAttribute('onclick');
             tabAnalytics.onclick = () => this.switchTab('analytics');
         }
+        if (tabAdmin) {
+            tabAdmin.removeAttribute('onclick');
+            tabAdmin.onclick = () => this.switchTab('admin');
+        }
     }
 
     /**
      * Muda a tab activa, mostrando/ocultando as secções correspondentes.
-     * @param {'dashboard'|'clients'|'analytics'} tab
+     * @param {'dashboard'|'clients'|'analytics'|'admin'} tab
      */
     switchTab(tab) {
         const dashboard        = document.getElementById('app-content');
         const clientsSection   = document.getElementById('clients-section');
         const analyticsSection = document.getElementById('analytics-section');
+        const adminSection     = document.getElementById('admin-section');
         const tabDash          = document.getElementById('tab-dashboard');
         const tabClients       = document.getElementById('tab-clients');
         const tabAnalytics     = document.getElementById('tab-analytics');
+        const tabAdmin         = document.getElementById('tab-admin');
 
         const active   = ['bg-indigo-600', 'text-white', 'shadow-sm'];
         const inactive = ['text-slate-500', 'hover:bg-slate-100'];
 
         // Oculta todas as secções
-        [dashboard, clientsSection, analyticsSection].forEach(s => s?.classList.add('hidden'));
+        [dashboard, clientsSection, analyticsSection, adminSection].forEach(s => s?.classList.add('hidden'));
         // Remove estado activo de todos os tabs
-        [tabDash, tabClients, tabAnalytics].forEach(t => {
+        [tabDash, tabClients, tabAnalytics, tabAdmin].forEach(t => {
             t?.classList.remove(...active);
             t?.classList.add(...inactive);
         });
@@ -105,11 +113,16 @@ export class NavigationController {
             clientsSection?.classList.remove('hidden');
             tabClients?.classList.add(...active);
             tabClients?.classList.remove(...inactive);
-        } else {
+        } else if (tab === 'analytics') {
             analyticsSection?.classList.remove('hidden');
             tabAnalytics?.classList.add(...active);
             tabAnalytics?.classList.remove(...inactive);
             if (this.onAnalyticsTab) this.onAnalyticsTab();
+        } else {
+            adminSection?.classList.remove('hidden');
+            tabAdmin?.classList.add(...active);
+            tabAdmin?.classList.remove(...inactive);
+            if (this.onAdminTab) this.onAdminTab();
         }
     }
 
