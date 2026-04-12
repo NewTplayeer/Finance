@@ -1,4 +1,13 @@
+/**
+ * CnpjService — consulta dados de empresas por CNPJ via BrasilAPI (gratuita, sem chave).
+ * Timeout de 8 segundos para não bloquear o formulário.
+ */
 export const CnpjService = {
+    /**
+     * Pesquisa um CNPJ na BrasilAPI e devolve os dados principais da empresa.
+     * @param {string} cnpj - apenas dígitos ou formatado
+     * @returns {Promise<{ name, razaoSocial, phone, email, type }|null>}
+     */
     async lookup(cnpj) {
         const digits = cnpj.replace(/\D/g, '');
         if (digits.length !== 14) return null;

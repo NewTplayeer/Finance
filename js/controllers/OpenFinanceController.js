@@ -1,9 +1,15 @@
+/**
+ * OpenFinanceController — gere a ligação ao Pluggy.ai (Open Finance Brasil).
+ * Carrega o SDK dinamicamente, autentica, lista contas e importa transações.
+ */
 import { OpenFinanceService } from '../services/OpenFinanceService.js';
 import { ModalView } from '../views/ModalView.js';
 import { pluggyConfig } from '../config.js';
 
-// URLs tentadas em sequência até uma carregar com sucesso
-// Pacote npm correto: pluggy-connect-sdk
+/**
+ * URLs do SDK Pluggy tentadas em sequência até uma carregar com sucesso.
+ * Pacote npm correcto: pluggy-connect-sdk
+ */
 const PLUGGY_SDK_URLS = [
     'https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js',
     'https://cdn.pluggy.ai/pluggy-connect/v2.7.0/pluggy-connect.js',
@@ -13,12 +19,18 @@ const PLUGGY_SDK_URLS = [
 ];
 
 export class OpenFinanceController {
+    /**
+     * @param {{ onImport: function }} options - callback chamado para cada transação importada
+     */
     constructor({ onImport }) {
-        this.onImport = onImport;
+        this.onImport  = onImport;
+        /** @type {string|null} ID do item (banco ligado) activo */
         this._itemId   = null;
+        /** @type {Array} Lista de contas do banco ligado */
         this._accounts = [];
     }
 
+    /** Regista todos os listeners dos botões do modal de Open Finance */
     init() {
         document.getElementById('btn-open-finance')?.addEventListener('click', () => this.openModal());
         document.getElementById('openfinance-connect-btn')?.addEventListener('click', () => this._connectBank());
@@ -26,26 +38,30 @@ export class OpenFinanceController {
         document.getElementById('openfinance-disconnect-btn')?.addEventListener('click', () => this._disconnect());
         document.getElementById('openfinance-modal-close')?.addEventListener('click', () => this.closeModal());
 
-        // Inicializa datas do período (mês corrente)
+        // Inicializa datas do período com o mês corrente
         const now = new Date();
-        const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, '0');
+        const y       = now.getFullYear();
+        const m       = String(now.getMonth() + 1).padStart(2, '0');
         const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
-        const fromEl = document.getElementById('openfinance-date-from');
-        const toEl   = document.getElementById('openfinance-date-to');
+        const fromEl  = document.getElementById('openfinance-date-from');
+        const toEl    = document.getElementById('openfinance-date-to');
         if (fromEl) fromEl.value = `${y}-${m}-01`;
         if (toEl)   toEl.value   = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
     }
 
+    /** Abre o modal e sincroniza a UI com o estado actual */
     openModal() {
         document.getElementById('openfinance-modal')?.classList.remove('hidden');
         this._syncUI();
         this._checkConfig();
     }
 
+    /** Fecha o modal de Open Finance */
     closeModal() {
         document.getElementById('openfinance-modal')?.classList.add('hidden');
     }
 
+    /** Mostra aviso de credenciais se clientId/clientSecret não estiverem configurados */
     _checkConfig() {
         const warning = document.getElementById('openfinance-config-warning');
         if (!warning) return;
@@ -53,6 +69,10 @@ export class OpenFinanceController {
         warning.classList.toggle('hidden', !missing);
     }
 
+    /**
+     * Alterna entre o passo de ligar banco e o passo de seleccionar contas,
+     * conforme o estado interno (_itemId e _accounts).
+     */
     _syncUI() {
         const stepConnect  = document.getElementById('openfinance-step-connect');
         const stepAccounts = document.getElementById('openfinance-step-accounts');
@@ -67,11 +87,12 @@ export class OpenFinanceController {
         }
     }
 
+    /** Renderiza a lista de contas bancárias com checkboxes de selecção */
     _renderAccounts() {
         const list = document.getElementById('openfinance-accounts-list');
         if (!list) return;
         list.innerHTML = this._accounts.map(acc => {
-            const balance = (acc.balance || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const balance   = (acc.balance || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             const typeLabel = { BANK: 'Conta Corrente', SAVINGS: 'Poupança', CREDIT: 'Cartão de Crédito' }[acc.type] || acc.type;
             return `
                 <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-indigo-50 transition-colors border border-transparent hover:border-indigo-100">
@@ -85,10 +106,13 @@ export class OpenFinanceController {
         }).join('');
     }
 
+    /**
+     * Autentica com a API Pluggy, obtém o connect token e abre o widget do banco.
+     * Carrega o SDK dinamicamente via _loadPluggySDK se ainda não estiver disponível.
+     */
     async _connectBank() {
         const btn    = document.getElementById('openfinance-connect-btn');
         const status = document.getElementById('openfinance-status');
-
         const setStatus = (msg) => { if (status) status.innerText = msg; };
 
         try {
@@ -117,6 +141,7 @@ export class OpenFinanceController {
                     if (!this._itemId) setStatus('');
                 }
             });
+
             // Compatível com v2.x (.init) e v2.2+ (.open)
             if (typeof instance.open === 'function')       instance.open();
             else if (typeof instance.init === 'function')  instance.init();
@@ -130,6 +155,11 @@ export class OpenFinanceController {
         }
     }
 
+    /**
+     * Tenta carregar o SDK Pluggy a partir de vários CDNs em sequência.
+     * Resolve quando window.PluggyConnect estiver disponível.
+     * @returns {Promise<void>}
+     */
     _loadPluggySDK() {
         return new Promise((resolve, reject) => {
             if (window.PluggyConnect) { resolve(); return; }
@@ -139,14 +169,14 @@ export class OpenFinanceController {
                 if (idx >= PLUGGY_SDK_URLS.length) {
                     reject(new Error(
                         'Não foi possível carregar o SDK do Pluggy a partir de nenhum CDN. ' +
-                        'Verifica a tua ligação à internet e abre a consola do browser (F12 → Network) para ver qual URL falhou.'
+                        'Verifica a tua ligação à internet e abre a consola (F12 → Network) para ver qual URL falhou.'
                     ));
                     return;
                 }
-                const s = document.createElement('script');
+                const s   = document.createElement('script');
                 const url = PLUGGY_SDK_URLS[idx++];
-                s.src = url;
-                s.onload = () => {
+                s.src     = url;
+                s.onload  = () => {
                     if (window.PluggyConnect) resolve();
                     else { console.warn('[Pluggy] Script carregado mas PluggyConnect não encontrado:', url); s.remove(); tryNext(); }
                 };
@@ -157,6 +187,7 @@ export class OpenFinanceController {
         });
     }
 
+    /** Desliga o banco activo e volta ao passo de ligação */
     _disconnect() {
         this._itemId   = null;
         this._accounts = [];
@@ -165,6 +196,10 @@ export class OpenFinanceController {
         if (status) status.innerText = '';
     }
 
+    /**
+     * Importa as transações das contas seleccionadas no período definido.
+     * Mostra pré-visualização via openAIConfirmModal antes de guardar.
+     */
     async _importSelected() {
         const checked = [...document.querySelectorAll('.openfinance-acc-check:checked')];
         if (!checked.length) { ModalView.showToast('Seleciona pelo menos uma conta.', 'error'); return; }
@@ -194,7 +229,7 @@ export class OpenFinanceController {
 
             if (status) status.innerText = `${all.length} transação(ões) encontrada(s).`;
 
-            // Preview das primeiras 15; se mais, indica o total real
+            // Pré-visualização limitada a 15 itens; mostra contagem se houver mais
             const preview = all.slice(0, 15);
             if (all.length > 15) {
                 preview.push({ desc: `... e mais ${all.length - 15} transação(ões)`, amount: 0, category: 'Outros', method: 'Dinheiro/Pix', bank: '' });

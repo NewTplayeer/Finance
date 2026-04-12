@@ -9,6 +9,7 @@
         tailwind.config = { darkMode: 'class' }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="text-slate-800">
@@ -62,6 +63,17 @@
                 <div id="register-name-group" class="hidden">
                     <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">O teu nome completo</label>
                     <input type="text" id="auth-name" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Ex: Bruno Silva">
+                </div>
+                <!-- Consentimento LGPD — visível apenas no registo -->
+                <div id="register-lgpd-group" class="hidden">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" id="lgpd-consent-check" class="mt-1 w-4 h-4 accent-indigo-600 shrink-0">
+                        <span class="text-xs text-slate-500 leading-relaxed">
+                            Concordo com o tratamento dos meus dados pessoais para fins de gestão financeira, em conformidade com a
+                            <strong class="text-slate-700">Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018)</strong>.
+                            Os dados são armazenados de forma segura e não são partilhados com terceiros.
+                        </span>
+                    </label>
                 </div>
                 <div>
                     <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">E-mail</label>
@@ -134,6 +146,9 @@
                             <button id="btn-mode-shared" class="px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 hover:bg-slate-100 transition-all" title="Precisa de um espaço partilhado configurado">Partilhado</button>
                         </div>
 
+                        <!-- Badge de modo activo -->
+                        <span id="view-mode-badge" class="text-[10px] font-bold px-3 py-1 rounded-full border bg-slate-50 text-slate-600 border-slate-200">👤 Pessoal</span>
+
                         <!-- Open Finance -->
                         <button id="btn-open-finance" class="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-bold uppercase hover:bg-emerald-100 transition-all" title="Importar dados do banco via Open Finance">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -167,6 +182,7 @@
                 <div class="flex gap-1 py-2">
                     <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-indigo-600 text-white shadow-sm transition-all">Painel</button>
                     <button onclick="switchTab('clients')" id="tab-clients" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-100 transition-all">Clientes</button>
+                    <button onclick="switchTab('analytics')" id="tab-analytics" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-100 transition-all">Análise</button>
                 </div>
             </div>
         </div>
@@ -230,6 +246,7 @@
                             <input type="text" id="desc" placeholder="Descrição do item" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
                             <input type="number" step="0.01" min="0.01" id="amount" placeholder="Valor (R$)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
                             <input type="text" id="bank-input" placeholder="Banco (Ex: Nubank)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                            <input type="text" id="place-input" placeholder="Local / Estabelecimento (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 sm:col-span-2">
                             <!-- Categoria + botão de nova categoria -->
                             <div class="flex gap-2">
                                 <select id="category" class="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none min-w-0"></select>
@@ -265,8 +282,9 @@
                             <h2 class="text-sm font-bold text-slate-600 uppercase tracking-widest">
                                 Histórico: <span id="display-month" class="text-indigo-600">—</span>
                             </h2>
-                            <div class="flex gap-2">
+                            <div class="flex flex-wrap gap-2">
                                 <button onclick="generateMonthSummary()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-lg shadow-indigo-100 uppercase">Resumo Mês</button>
+                                <button id="btn-open-pdf-panel" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition hover:bg-emerald-700">PDF</button>
                                 <button onclick="openConfirmModal('clearAll')" class="bg-rose-50 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition hover:bg-rose-100">Limpar</button>
                             </div>
                         </div>
@@ -274,11 +292,11 @@
                             <table class="w-full text-left">
                                 <thead class="text-[10px] text-slate-400 uppercase font-bold border-b border-slate-50">
                                     <tr>
-                                        <th class="px-8 py-5">Estado</th>
-                                        <th class="px-8 py-5">Descrição / Banco</th>
-                                        <th class="px-8 py-5 text-center">Meio</th>
-                                        <th class="px-8 py-5 text-right">Valor</th>
-                                        <th class="px-8 py-5 text-center">Ação</th>
+                                        <th class="px-4 sm:px-8 py-5">Estado</th>
+                                        <th class="px-4 sm:px-8 py-5">Descrição / Banco</th>
+                                        <th class="hidden sm:table-cell px-8 py-5 text-center">Meio</th>
+                                        <th class="px-4 sm:px-8 py-5 text-right">Valor</th>
+                                        <th class="px-4 sm:px-8 py-5 text-center">Ação</th>
                                     </tr>
                                 </thead>
                                 <tbody id="transaction-list" class="divide-y divide-slate-50 text-sm"></tbody>
@@ -286,12 +304,82 @@
                         </div>
                     </div>
 
-                    <!-- METAS DE GASTOS -->
-                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
-                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-5 tracking-[0.2em]">Metas de Gastos</h3>
-                        <div id="budget-bars">
-                            <p class="text-xs text-slate-400 italic text-center py-4">Sem metas definidas. Edita o teu perfil para definir metas por categoria.</p>
+                    <!-- RELATÓRIO PDF -->
+                    <div id="pdf-panel" class="hidden bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-5 tracking-[0.2em]">Relatório PDF</h3>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-1">De</label>
+                                <input type="date" id="pdf-date-from" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-400">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-1">Até</label>
+                                <input type="date" id="pdf-date-to" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-400">
+                            </div>
                         </div>
+                        <button id="btn-generate-pdf" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition shadow-lg text-sm">
+                            Gerar e Descarregar PDF
+                        </button>
+                        <p class="text-[10px] text-slate-400 text-center mt-2">Deixa as datas em branco para exportar tudo.</p>
+                    </div>
+
+                    <!-- COFRINHOS -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Cofrinhos</h3>
+                            <button id="btn-open-savings-form" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition">+ Novo</button>
+                        </div>
+                        <!-- Formulário de novo cofrinho (oculto por defeito) -->
+                        <div id="savings-form" class="hidden bg-slate-50 rounded-2xl p-4 mb-4 space-y-3">
+                            <input type="text" id="savings-name" placeholder="Nome do cofrinho (ex: Viagem)" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="text" id="savings-emoji" placeholder="Emoji (ex: ✈️)" maxlength="4" class="p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                                <input type="number" step="0.01" min="0" id="savings-goal" placeholder="Meta (R$)" class="p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="savings-form-save" class="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm hover:bg-indigo-700 transition">Criar</button>
+                                <button id="savings-form-cancel" class="px-4 py-2.5 bg-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-300 transition">✕</button>
+                            </div>
+                        </div>
+                        <div id="savings-list"></div>
+                    </div>
+
+                    <!-- EMPRÉSTIMOS -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Empréstimos</h3>
+                            <button id="btn-open-loan-form" class="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-xl hover:bg-amber-600 transition">+ Novo</button>
+                        </div>
+                        <!-- Formulário de novo empréstimo (oculto por defeito) -->
+                        <div id="loan-form" class="hidden bg-slate-50 rounded-2xl p-4 mb-4 space-y-3">
+                            <input type="text" id="loan-debtor" placeholder="Nome do devedor / credor *" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="number" step="0.01" min="0.01" id="loan-amount" placeholder="Valor (R$) *" class="p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                                <input type="number" step="0.01" min="0" id="loan-interest" placeholder="Juros % /mês" class="p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-[10px] text-slate-400 block mb-1">Data Início</label>
+                                    <input type="date" id="loan-start-date" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-slate-400 block mb-1">Vencimento</label>
+                                    <input type="date" id="loan-due-date" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                                </div>
+                            </div>
+                            <select id="loan-method" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm cursor-pointer outline-none">
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Pix">Pix</option>
+                                <option value="Transferência">Transferência</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                            <input type="text" id="loan-notes" placeholder="Notas / Observações" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                            <div class="flex gap-2">
+                                <button id="loan-form-save" class="flex-1 py-2.5 bg-amber-500 text-white font-bold rounded-xl text-sm hover:bg-amber-600 transition">Registar</button>
+                                <button id="loan-form-cancel" class="px-4 py-2.5 bg-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-300 transition">✕</button>
+                            </div>
+                        </div>
+                        <div id="loans-list"></div>
                     </div>
 
                 </div>
@@ -312,6 +400,66 @@
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow text-center dark-card">
                         <h2 class="text-xs font-bold text-slate-400 uppercase mb-6 tracking-[0.2em]">Gastos por Categoria</h2>
                         <div class="h-56"><canvas id="pieChart"></canvas></div>
+                    </div>
+
+                    <!-- METAS DE GASTOS (edição inline) -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-5 tracking-[0.2em]">Metas de Gastos (R$/mês)</h3>
+                        <!-- Barras de progresso -->
+                        <div id="budget-bars" class="mb-5">
+                            <p class="text-xs text-slate-400 italic text-center py-2">Sem metas definidas.</p>
+                        </div>
+                        <!-- Formulário de adicionar nova meta -->
+                        <div class="border-t border-slate-100 pt-4">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-3">Adicionar Meta</p>
+                            <!-- Lista dinâmica de metas guardadas -->
+                            <div id="budget-goals-list" class="mb-3"></div>
+                            <div class="flex gap-2 items-end">
+                                <div class="flex-1">
+                                    <label class="text-[10px] text-slate-400 block mb-1">Categoria</label>
+                                    <select id="budget-cat-select" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"></select>
+                                </div>
+                                <div class="w-24">
+                                    <label class="text-[10px] text-slate-400 block mb-1">Valor (R$)</label>
+                                    <input type="number" id="budget-amount-input" min="1" placeholder="500"
+                                        class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                                </div>
+                                <button id="btn-add-budget" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Meta</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ESPAÇO PARTILHADO -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-5 tracking-[0.2em] flex items-center gap-2">
+                            🤝 Finanças Partilhadas
+                        </h3>
+
+                        <!-- Info do espaço activo -->
+                        <div id="shared-space-info" class="hidden bg-violet-50 border border-violet-100 rounded-2xl p-4 mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-violet-700">Espaço Activo</span>
+                                <button id="btn-leave-space" class="text-[10px] text-rose-500 font-bold hover:text-rose-700">Sair</button>
+                            </div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-xs text-slate-500">Código:</span>
+                                <code id="shared-space-code" class="font-mono font-bold text-sm text-violet-700 bg-white px-3 py-1 rounded-xl border border-violet-200"></code>
+                                <button id="btn-copy-space-code" class="text-[10px] bg-violet-100 text-violet-600 px-2 py-1 rounded-lg font-bold hover:bg-violet-200">Copiar</button>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2">Partilha este código com a tua parceira/o para acederem juntos.</p>
+                        </div>
+
+                        <!-- Criar novo espaço -->
+                        <button id="btn-create-space" class="w-full py-3 bg-violet-50 text-violet-600 font-bold rounded-2xl border-2 border-dashed border-violet-200 hover:bg-violet-100 transition text-xs mb-3">
+                            ✨ Criar Espaço Partilhado
+                        </button>
+
+                        <!-- Entrar com código -->
+                        <div id="join-space-section" class="flex gap-2">
+                            <input type="text" id="join-space-code-input" placeholder="Código (ex: AB12CD34)" maxlength="8"
+                                class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-300 font-mono uppercase">
+                            <button id="btn-join-space" class="px-4 py-3 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-slate-700 transition">Entrar</button>
+                        </div>
                     </div>
 
                 </div>
@@ -367,6 +515,63 @@
             </div>
         </section>
 
+        <!-- SECÇÃO DE ANÁLISE -->
+        <section id="analytics-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+            <!-- Stats globais -->
+            <div class="mb-8">
+                <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Resumo Global (Todos os Meses)</h2>
+                <div id="analytics-global-stats">
+                    <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                <!-- Coluna principal -->
+                <div class="lg:col-span-2 space-y-8">
+
+                    <!-- Tendência mensal -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-5">Tendência Mensal (últimos 12 meses)</h3>
+                        <div id="analytics-monthly-trend">
+                            <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
+                        </div>
+                    </div>
+
+                    <!-- Despesas por categoria -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-5">Despesas por Categoria (total acumulado)</h3>
+                        <div id="analytics-categories">
+                            <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Coluna lateral -->
+                <div class="space-y-8">
+
+                    <!-- Cofrinhos -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Cofrinhos</h3>
+                        <div id="analytics-savings">
+                            <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
+                        </div>
+                    </div>
+
+                    <!-- Empréstimos -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Empréstimos</h3>
+                        <div id="analytics-loans">
+                            <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
     </div><!-- /main-interface -->
 
     <!-- ═══════════════════ MODAIS ═══════════════════ -->
@@ -389,24 +594,16 @@
                     </div>
                 </div>
 
-                <!-- Metas de Gastos -->
+                <!-- Métodos de Pagamento -->
                 <div class="mb-6 border-t border-slate-100 pt-6">
-                    <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-4 tracking-[0.2em]">Metas de Gastos (R$/mês)</h4>
-                    <!-- Lista dinâmica de metas -->
-                    <div id="budget-goals-list" class="mb-3"></div>
-                    <!-- Formulário de adicionar nova meta -->
-                    <div class="flex gap-2 items-end">
-                        <div class="flex-1">
-                            <label class="text-[10px] text-slate-400 block mb-1">Categoria</label>
-                            <select id="budget-cat-select" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"></select>
-                        </div>
-                        <div class="w-28">
-                            <label class="text-[10px] text-slate-400 block mb-1">Valor (R$)</label>
-                            <input type="number" id="budget-amount-input" min="1" placeholder="Ex: 500"
-                                class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                        </div>
-                        <button id="btn-add-budget" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Meta</button>
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-4 tracking-[0.2em]">Métodos de Pagamento</h4>
+                    <div id="methods-list" class="mb-3"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-method-input" placeholder="Ex: Crédito Empresarial"
+                            class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                        <button id="btn-add-method" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Método</button>
                     </div>
+                    <p class="text-[10px] text-slate-400 mt-2">Padrão: Dinheiro/Pix, Cartão Débito, Cartão, Boleto</p>
                 </div>
 
                 <!-- Faturas / Cartões -->
@@ -438,39 +635,6 @@
                         🔕 Activar Notificações de Faturas
                     </button>
                     <p class="text-[10px] text-slate-400 mt-2 text-center">Notificação no dia do fechamento e 1 dia antes do vencimento.</p>
-                </div>
-
-                <!-- Espaço Partilhado -->
-                <div class="border-t border-slate-100 pt-6 mb-6">
-                    <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-4 tracking-[0.2em] flex items-center gap-2">
-                        🤝 Finanças Partilhadas
-                    </h4>
-
-                    <!-- Info do espaço activo -->
-                    <div id="shared-space-info" class="hidden bg-violet-50 border border-violet-100 rounded-2xl p-4 mb-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-bold text-violet-700">Espaço Activo</span>
-                            <button id="btn-leave-space" class="text-[10px] text-rose-500 font-bold hover:text-rose-700">Sair</button>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-slate-500">Código:</span>
-                            <code id="shared-space-code" class="font-mono font-bold text-sm text-violet-700 bg-white px-3 py-1 rounded-xl border border-violet-200"></code>
-                            <button id="btn-copy-space-code" class="text-[10px] bg-violet-100 text-violet-600 px-2 py-1 rounded-lg font-bold hover:bg-violet-200">Copiar</button>
-                        </div>
-                        <p class="text-[10px] text-slate-400 mt-2">Partilha este código com a tua parceira/o para acederem juntos.</p>
-                    </div>
-
-                    <!-- Criar novo espaço -->
-                    <button id="btn-create-space" class="w-full py-3 bg-violet-50 text-violet-600 font-bold rounded-2xl border-2 border-dashed border-violet-200 hover:bg-violet-100 transition text-xs mb-3">
-                        ✨ Criar Espaço Partilhado
-                    </button>
-
-                    <!-- Entrar com código -->
-                    <div id="join-space-section" class="flex gap-2">
-                        <input type="text" id="join-space-code-input" placeholder="Código de convite (ex: AB12CD34)" maxlength="8"
-                            class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-300 font-mono uppercase">
-                        <button id="btn-join-space" class="px-4 py-3 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-slate-700 transition">Entrar</button>
-                    </div>
                 </div>
 
                 <!-- Botões de acção -->
@@ -656,6 +820,7 @@
                     <option value="Boleto">Boleto</option>
                 </select>
                 <input type="text" id="edit-bank" placeholder="Banco (Ex: Nubank)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                <input type="text" id="edit-place" placeholder="Local / Estabelecimento (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
             </div>
             <div class="flex flex-col gap-3 mt-6">
                 <button id="edit-save-btn" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl">Guardar Alterações</button>
@@ -664,6 +829,14 @@
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=3"></script>
+    <script>
+        /* Toggle do painel PDF */
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('btn-open-pdf-panel')?.addEventListener('click', function() {
+                document.getElementById('pdf-panel')?.classList.toggle('hidden');
+            });
+        });
+    </script>
+    <script type="module" src="js/app.js?v=6"></script>
 </body>
 </html>

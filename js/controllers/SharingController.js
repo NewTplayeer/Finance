@@ -1,3 +1,7 @@
+/**
+ * SharingController — gere a criação, entrada e saída de espaços partilhados.
+ * Usa SharedSpaceModel para operações no Firestore e UserModel para guardar o spaceId no perfil.
+ */
 import { SharedSpaceModel } from '../models/SharedSpaceModel.js';
 import { UserModel } from '../models/UserModel.js';
 import { ModalView } from '../views/ModalView.js';
@@ -5,34 +9,29 @@ import { DashboardView } from '../views/DashboardView.js';
 import { state } from '../state.js';
 
 export class SharingController {
+    /**
+     * @param {{ onModeChange: function }} options
+     */
     constructor({ onModeChange }) {
         this.onModeChange = onModeChange;
     }
 
+    /** Regista todos os listeners dos botões de espaço partilhado no modal de perfil */
     init() {
         this._bindProfileButtons();
     }
 
+    /** Regista os listeners dos botões Criar, Entrar, Sair e Copiar código */
     _bindProfileButtons() {
-        // Botão "Criar Espaço Partilhado"
         const createBtn = document.getElementById('btn-create-space');
-        if (createBtn) {
-            createBtn.onclick = () => this.createSpace();
-        }
+        if (createBtn) createBtn.onclick = () => this.createSpace();
 
-        // Botão "Entrar com Código"
         const joinBtn = document.getElementById('btn-join-space');
-        if (joinBtn) {
-            joinBtn.onclick = () => this.joinSpace();
-        }
+        if (joinBtn) joinBtn.onclick = () => this.joinSpace();
 
-        // Botão "Sair do Espaço"
         const leaveBtn = document.getElementById('btn-leave-space');
-        if (leaveBtn) {
-            leaveBtn.onclick = () => this.leaveSpace();
-        }
+        if (leaveBtn) leaveBtn.onclick = () => this.leaveSpace();
 
-        // Copiar código
         const copyBtn = document.getElementById('btn-copy-space-code');
         if (copyBtn) {
             copyBtn.onclick = () => {
@@ -45,8 +44,9 @@ export class SharingController {
         }
     }
 
+    /** Cria um novo espaço partilhado e associa ao utilizador actual */
     async createSpace() {
-        const uid = state.currentUser?.uid;
+        const uid      = state.currentUser?.uid;
         if (!uid) return;
         const userName = state.userName || "Utilizador";
 
@@ -55,7 +55,6 @@ export class SharingController {
             await UserModel.savePrefs(uid, { sharedSpaceId: spaceId });
             state.sharedSpaceId = spaceId;
 
-            // Actualiza UI
             document.getElementById('shared-space-code')?.parentElement?.classList.remove('hidden');
             const codeEl = document.getElementById('shared-space-code');
             if (codeEl) codeEl.innerText = spaceId;
@@ -69,6 +68,7 @@ export class SharingController {
         }
     }
 
+    /** Entra num espaço partilhado existente com o código introduzido */
     async joinSpace() {
         const code = document.getElementById('join-space-code-input')?.value?.trim().toUpperCase();
         if (!code || code.length < 4) {
@@ -76,7 +76,7 @@ export class SharingController {
             return;
         }
 
-        const uid = state.currentUser?.uid;
+        const uid      = state.currentUser?.uid;
         if (!uid) return;
         const userName = state.userName || "Utilizador";
 
@@ -85,7 +85,6 @@ export class SharingController {
             await UserModel.savePrefs(uid, { sharedSpaceId: spaceId });
             state.sharedSpaceId = spaceId;
 
-            // Actualiza UI
             const codeEl = document.getElementById('shared-space-code');
             if (codeEl) codeEl.innerText = spaceId;
             document.getElementById('shared-space-info')?.classList.remove('hidden');
@@ -93,14 +92,13 @@ export class SharingController {
             document.getElementById('join-space-section')?.classList.add('hidden');
 
             ModalView.showToast("Entrou no espaço partilhado!", 'success');
-
-            // Actualiza botão de modo partilhado
             DashboardView.updateViewModeUI('personal');
         } catch (e) {
             ModalView.showToast(e.message, 'error');
         }
     }
 
+    /** Abre confirmação e remove o utilizador do espaço partilhado activo */
     async leaveSpace() {
         ModalView.openConfirmModal({
             title: "Sair do Espaço Partilhado",
@@ -111,9 +109,8 @@ export class SharingController {
                 if (!uid) return;
                 await UserModel.savePrefs(uid, { sharedSpaceId: null });
                 state.sharedSpaceId = null;
-                state.viewMode = 'personal';
+                state.viewMode      = 'personal';
 
-                // Actualiza UI
                 document.getElementById('shared-space-info')?.classList.add('hidden');
                 document.getElementById('btn-create-space')?.classList.remove('hidden');
                 document.getElementById('join-space-section')?.classList.remove('hidden');

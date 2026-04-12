@@ -1,16 +1,25 @@
+/**
+ * TransactionController — gere o CRUD de transações, o dashboard e o processamento IA.
+ * É o controller central da aplicação.
+ */
 import { TransactionModel } from '../models/TransactionModel.js';
 import { AIService } from '../services/AIService.js';
 import { DashboardView } from '../views/DashboardView.js';
 import { ModalView } from '../views/ModalView.js';
 import { UserModel } from '../models/UserModel.js';
+import { ReportService } from '../services/ReportService.js';
 import { state } from '../state.js';
-import { currentMonthKey, DEFAULT_CATEGORIES } from '../config.js';
+import { currentMonthKey, DEFAULT_CATEGORIES, DEFAULT_METHODS } from '../config.js';
 
 export class TransactionController {
+    /**
+     * @param {{ getSelectedMonth: function }} options
+     */
     constructor({ getSelectedMonth }) {
         this.getSelectedMonth = getSelectedMonth;
     }
 
+    /** Inicializa todos os event listeners do controller */
     init() {
         this._bindManualForm();
         this._bindAIInput();
@@ -18,9 +27,31 @@ export class TransactionController {
         this._bindSummaryActions();
         this._bindEditModal();
         this._bindInlineCategoryAdd();
+        this._bindPdfReport();
+        this.refreshMethodSelectors();
     }
 
-    // Popula todos os <select> de categoria com as categorias padrão + personalizadas
+    /**
+     * Popula os <select> de método com os métodos padrão + personalizados.
+     * Chama-se após login e sempre que um método é adicionado/removido.
+     */
+    refreshMethodSelectors() {
+        const allMethods = [...DEFAULT_METHODS, ...state.customMethods];
+        ['method', 'edit-method'].forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = allMethods.map(m =>
+                `<option value="${m}"${m === current ? ' selected' : ''}>${m}</option>`
+            ).join('');
+            if (current && allMethods.includes(current)) sel.value = current;
+        });
+    }
+
+    /**
+     * Popula todos os <select> de categoria com as categorias padrão + personalizadas.
+     * Chama-se após login e sempre que uma nova categoria é adicionada.
+     */
     refreshCategorySelectors() {
         const allCats = [...DEFAULT_CATEGORIES, ...state.customCategories];
         ['category', 'edit-category'].forEach(id => {
@@ -34,6 +65,7 @@ export class TransactionController {
         });
     }
 
+    /** Regista os listeners do botão "+" inline para adicionar nova categoria no formulário */
     _bindInlineCategoryAdd() {
         const toggleBtn = document.getElementById('btn-new-category-inline');
         const row       = document.getElementById('new-cat-row');
@@ -73,11 +105,12 @@ export class TransactionController {
         });
     }
 
-    // Devolve o spaceId activo (null se modo pessoal)
+    /** Devolve o spaceId activo (null se modo pessoal) */
     _activeSpaceId() {
         return (state.viewMode === 'shared' && state.sharedSpaceId) ? state.sharedSpaceId : null;
     }
 
+    /** Inicia a sincronização em tempo real com o Firestore */
     startSync() {
         const uid = state.currentUser?.uid;
         if (!uid) return;
@@ -90,16 +123,18 @@ export class TransactionController {
         }, this._activeSpaceId());
     }
 
+    /** Para a sincronização activa */
     stopSync() {
         if (state.unsubscribeTrans) { state.unsubscribeTrans(); state.unsubscribeTrans = null; }
     }
 
-    // Reinicia sync quando muda de modo (pessoal/partilhado)
+    /** Reinicia o sync quando muda de modo (pessoal/partilhado) */
     restartSync() {
         this.stopSync();
         this.startSync();
     }
 
+    /** Actualiza todos os widgets do dashboard com os dados do mês seleccionado */
     refreshDashboard() {
         const monthKey = this.getSelectedMonth();
         const filtered = state.transactions.filter(t => t.monthKey === monthKey);
@@ -138,6 +173,7 @@ export class TransactionController {
         this._refreshClientSelector();
     }
 
+    /** Actualiza o select de clientes no formulário manual */
     _refreshClientSelector() {
         const sel = document.getElementById('client-id-select');
         if (!sel) return;
@@ -152,6 +188,10 @@ export class TransactionController {
         if (current) sel.value = current;
     }
 
+    /**
+     * Alterna o estado pago/pendente de uma transação.
+     * @param {string} id - ID da transação
+     */
     async togglePaid(id) {
         const uid = state.currentUser?.uid;
         if (!uid) return;
@@ -159,6 +199,10 @@ export class TransactionController {
         if (item) await TransactionModel.togglePaid(uid, item, this._activeSpaceId());
     }
 
+    /**
+     * Abre o modal de confirmação para apagar uma transação.
+     * @param {string} id
+     */
     confirmDelete(id) {
         ModalView.openConfirmModal({
             title: "Confirmar",
@@ -168,16 +212,25 @@ export class TransactionController {
         });
     }
 
+    /**
+     * Apaga uma transação pelo ID.
+     * @param {string} id
+     */
     async delete(id) {
         const uid = state.currentUser?.uid;
         if (uid) await TransactionModel.delete(uid, id, this._activeSpaceId());
     }
 
+    /** Apaga todas as transações do utilizador (ou espaço partilhado activo) */
     async clearAll() {
         const uid = state.currentUser?.uid;
         if (uid) await TransactionModel.clearAll(uid, state.transactions, this._activeSpaceId());
     }
 
+    /**
+     * Adiciona uma transação ao Firestore.
+     * @param {Object} data - campos da transação (desc, amount, category, method, bank, place, etc.)
+     */
     async addTransaction(data) {
         const uid = state.currentUser?.uid;
         if (!uid) { ModalView.showToast("Erro: utilizador não autenticado.", 'error'); return; }
@@ -189,6 +242,7 @@ export class TransactionController {
         }
     }
 
+    /** Regista o submit do formulário manual de transações */
     _bindManualForm() {
         const form = document.getElementById('finance-form');
         if (!form) return;
@@ -199,6 +253,7 @@ export class TransactionController {
             const category     = document.getElementById('category')?.value;
             const method       = document.getElementById('method')?.value;
             const bank         = document.getElementById('bank-input')?.value?.trim();
+            const place        = document.getElementById('place-input')?.value?.trim() || '';
             const rawInstall   = document.getElementById('installments')?.value;
             const installments = Math.max(1, parseInt(rawInstall, 10) || 1);
             const clientId     = document.getElementById('client-id-select')?.value || "";
@@ -209,7 +264,7 @@ export class TransactionController {
             }
 
             const dateKey = this.getSelectedMonth();
-            await this.addTransaction({ desc, amount, category, method, bank, installments, clientId, dateKey });
+            await this.addTransaction({ desc, amount, category, method, bank, place, installments, clientId, dateKey });
             form.reset();
 
             if (installments > 1) {
@@ -240,6 +295,7 @@ export class TransactionController {
         }
     }
 
+    /** Regista o listener do botão de processamento IA no painel principal */
     _bindAIInput() {
         const aiBtn = document.getElementById('ai-submit');
         if (!aiBtn) return;
@@ -258,6 +314,7 @@ export class TransactionController {
         });
     }
 
+    /** Regista o listener do botão de processar extrato no modal de importação */
     _bindImportModal() {
         const importBtn = document.getElementById('import-process-btn');
         if (!importBtn) return;
@@ -267,6 +324,10 @@ export class TransactionController {
         };
     }
 
+    /**
+     * Abre o modal de edição pré-preenchido com os dados da transação.
+     * @param {string} id - ID da transação a editar
+     */
     editTransaction(id) {
         const t = state.transactions.find(tx => tx.id === id);
         if (!t) return;
@@ -274,14 +335,17 @@ export class TransactionController {
         this._editingId = id;
         this.refreshCategorySelectors();
 
-        document.getElementById('edit-desc').value     = t.desc    || '';
-        document.getElementById('edit-amount').value   = t.amount  || '';
+        document.getElementById('edit-desc').value     = t.desc     || '';
+        document.getElementById('edit-amount').value   = t.amount   || '';
         document.getElementById('edit-category').value = t.category || 'Outros';
-        document.getElementById('edit-method').value   = t.method  || 'Dinheiro/Pix';
-        document.getElementById('edit-bank').value     = t.bank    || '';
+        document.getElementById('edit-method').value   = t.method   || 'Dinheiro/Pix';
+        document.getElementById('edit-bank').value     = t.bank     || '';
+        const editPlace = document.getElementById('edit-place');
+        if (editPlace) editPlace.value = t.place || '';
         document.getElementById('edit-transaction-modal')?.classList.remove('hidden');
     }
 
+    /** Regista os listeners dos botões Guardar e Cancelar do modal de edição */
     _bindEditModal() {
         document.getElementById('edit-save-btn')?.addEventListener('click', () => this._saveEdit());
         document.getElementById('edit-cancel-btn')?.addEventListener('click', () => {
@@ -289,6 +353,7 @@ export class TransactionController {
         });
     }
 
+    /** Guarda as alterações do modal de edição no Firestore */
     async _saveEdit() {
         if (!this._editingId) return;
         const uid = state.currentUser?.uid;
@@ -299,18 +364,31 @@ export class TransactionController {
         const category = document.getElementById('edit-category')?.value;
         const method   = document.getElementById('edit-method')?.value;
         const bank     = document.getElementById('edit-bank')?.value?.trim();
+        const place    = document.getElementById('edit-place')?.value?.trim() || '';
 
         if (!desc || amount <= 0) {
             ModalView.showToast('Preenche a descrição e o valor.', 'error');
             return;
         }
 
-        await TransactionModel.update(uid, this._editingId, { desc, amount, category, method, bank }, this._activeSpaceId());
+        await TransactionModel.update(uid, this._editingId, { desc, amount, category, method, bank, place }, this._activeSpaceId());
         this._editingId = null;
         document.getElementById('edit-transaction-modal')?.classList.add('hidden');
         ModalView.showToast('Registo actualizado!', 'success');
     }
 
+    /** Regista o listener do botão de gerar relatório PDF com filtro de datas */
+    _bindPdfReport() {
+        const btn = document.getElementById('btn-generate-pdf');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            const from = document.getElementById('pdf-date-from')?.value || '';
+            const to   = document.getElementById('pdf-date-to')?.value   || '';
+            ReportService.generate(state.transactions, { from, to }, state.userName || '');
+        });
+    }
+
+    /** Regista os listeners dos botões "Resumo Mês" e "Copiar" */
     _bindSummaryActions() {
         const summaryBtn = document.querySelector('[onclick="generateMonthSummary()"]');
         if (summaryBtn) {
@@ -338,6 +416,11 @@ export class TransactionController {
         }
     }
 
+    /**
+     * Envia texto para o AIService e processa a resposta.
+     * @param {string} text - texto a interpretar
+     * @param {boolean} isImport - true se veio do modal de importação de extrato
+     */
     async _processAI(text, isImport) {
         if (isImport) ModalView.setImportLoading(true);
         else ModalView.setAILoading(true);
