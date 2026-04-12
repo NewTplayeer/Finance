@@ -17,6 +17,12 @@ export const APP_ID = 'bruno-financas-v3-auth';
 
 export const currentMonthKey = new Date().toISOString().slice(0, 7);
 
+// Categorias padrão da aplicação (usadas no select e no AIService)
+export const DEFAULT_CATEGORIES = [
+    'Receita', 'Alimentação', 'Transporte', 'Saúde',
+    'Lazer', 'Casa', 'Educação', 'Vestuário', 'Serviços', 'Outros'
+];
+
 // Open Finance (Pluggy.ai) — regista em https://pluggy.ai e adiciona as tuas credenciais
 export const pluggyConfig = {
     clientId:     '329a3f3a-ce45-49f2-b9c4-252ac6824718',   // ex: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'

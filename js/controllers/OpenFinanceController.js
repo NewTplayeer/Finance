@@ -3,14 +3,13 @@ import { ModalView } from '../views/ModalView.js';
 import { pluggyConfig } from '../config.js';
 
 // URLs tentadas em sequência até uma carregar com sucesso
+// Pacote npm correto: pluggy-connect-sdk
 const PLUGGY_SDK_URLS = [
-    'https://cdn.pluggy.ai/pluggy-connect/v2.2.0/pluggy-connect.min.js',
-    'https://cdn.pluggy.ai/pluggy-connect/v2.3.0/pluggy-connect.min.js',
-    'https://cdn.pluggy.ai/pluggy-connect/v2.1.0/pluggy-connect.min.js',
-    'https://cdn.jsdelivr.net/npm/@pluggy/connect@latest/dist/pluggy-connect.min.js',
-    'https://cdn.jsdelivr.net/npm/@pluggy/connect@2/dist/pluggy-connect.min.js',
-    'https://unpkg.com/@pluggy/connect@latest/dist/pluggy-connect.min.js',
-    'https://unpkg.com/@pluggy/connect@2/dist/pluggy-connect.min.js',
+    'https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js',
+    'https://cdn.pluggy.ai/pluggy-connect/v2.7.0/pluggy-connect.js',
+    'https://cdn.jsdelivr.net/npm/pluggy-connect-sdk@latest/dist/pluggy-connect.min.js',
+    'https://cdn.jsdelivr.net/npm/pluggy-connect-sdk/dist/pluggy-connect.min.js',
+    'https://unpkg.com/pluggy-connect-sdk@latest/dist/pluggy-connect.min.js',
 ];
 
 export class OpenFinanceController {

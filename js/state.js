@@ -15,5 +15,7 @@ export const state = {
     sharedSpaceId: null,
     userName: '',
     budgets: {},             // { categoria: metaValor }
+    customCategories: [],    // categorias personalizadas do utilizador
+    cards: [],               // [{ bankName, closingDay, dueDay }]
     darkMode: false,
 };

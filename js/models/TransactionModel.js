@@ -49,6 +49,10 @@ export const TransactionModel = {
         await deleteDoc(getActiveDocRef(uid, id, spaceId));
     },
 
+    async update(uid, id, { desc, amount, category, method, bank }, spaceId = null) {
+        await updateDoc(getActiveDocRef(uid, id, spaceId), { desc, amount, category, method, bank });
+    },
+
     async clearAll(uid, transactions, spaceId = null) {
         const batch = writeBatch(db);
         transactions.forEach(t => batch.delete(getActiveDocRef(uid, t.id, spaceId)));

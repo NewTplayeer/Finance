@@ -2,8 +2,9 @@ import { TransactionModel } from '../models/TransactionModel.js';
 import { AIService } from '../services/AIService.js';
 import { DashboardView } from '../views/DashboardView.js';
 import { ModalView } from '../views/ModalView.js';
+import { UserModel } from '../models/UserModel.js';
 import { state } from '../state.js';
-import { currentMonthKey } from '../config.js';
+import { currentMonthKey, DEFAULT_CATEGORIES } from '../config.js';
 
 export class TransactionController {
     constructor({ getSelectedMonth }) {
@@ -15,6 +16,61 @@ export class TransactionController {
         this._bindAIInput();
         this._bindImportModal();
         this._bindSummaryActions();
+        this._bindEditModal();
+        this._bindInlineCategoryAdd();
+    }
+
+    // Popula todos os <select> de categoria com as categorias padrão + personalizadas
+    refreshCategorySelectors() {
+        const allCats = [...DEFAULT_CATEGORIES, ...state.customCategories];
+        ['category', 'edit-category'].forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = allCats.map(c =>
+                `<option value="${c}"${c === current ? ' selected' : ''}>${c}</option>`
+            ).join('');
+            if (current && allCats.includes(current)) sel.value = current;
+        });
+    }
+
+    _bindInlineCategoryAdd() {
+        const toggleBtn = document.getElementById('btn-new-category-inline');
+        const row       = document.getElementById('new-cat-row');
+        const input     = document.getElementById('new-cat-input');
+        const confirmBtn = document.getElementById('new-cat-confirm');
+        const cancelBtn  = document.getElementById('new-cat-cancel');
+        if (!toggleBtn || !row) return;
+
+        toggleBtn.addEventListener('click', () => {
+            const isHidden = row.classList.toggle('hidden');
+            if (!isHidden) setTimeout(() => input?.focus(), 50);
+        });
+
+        const doAdd = async () => {
+            const name = input?.value?.trim();
+            if (!name) { ModalView.showToast('Escreve o nome da categoria.', 'error'); return; }
+            const all = [...DEFAULT_CATEGORIES, ...state.customCategories];
+            if (all.some(c => c.toLowerCase() === name.toLowerCase())) {
+                ModalView.showToast('Essa categoria já existe.', 'error');
+                return;
+            }
+            state.customCategories = [...state.customCategories, name];
+            const uid = state.currentUser?.uid;
+            if (uid) await UserModel.savePrefs(uid, { customCategories: state.customCategories });
+            this.refreshCategorySelectors();
+            document.getElementById('category').value = name;
+            row.classList.add('hidden');
+            input.value = '';
+            ModalView.showToast(`Categoria "${name}" adicionada!`, 'success');
+        };
+
+        confirmBtn?.addEventListener('click', doAdd);
+        input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } });
+        cancelBtn?.addEventListener('click', () => {
+            row.classList.add('hidden');
+            if (input) input.value = '';
+        });
     }
 
     // Devolve o spaceId activo (null se modo pessoal)
@@ -63,7 +119,8 @@ export class TransactionController {
 
         DashboardView.renderTransactionList(filtered, {
             onTogglePaid: (id) => this.togglePaid(id),
-            onDelete: (id) => this.confirmDelete(id)
+            onDelete: (id) => this.confirmDelete(id),
+            onEdit: (id) => this.editTransaction(id)
         });
 
         const monthFilter = document.getElementById('month-filter');
@@ -208,6 +265,50 @@ export class TransactionController {
             const text = document.getElementById('import-text')?.value?.trim();
             if (text) await this._processAI(text, true);
         };
+    }
+
+    editTransaction(id) {
+        const t = state.transactions.find(tx => tx.id === id);
+        if (!t) return;
+
+        this._editingId = id;
+        this.refreshCategorySelectors();
+
+        document.getElementById('edit-desc').value     = t.desc    || '';
+        document.getElementById('edit-amount').value   = t.amount  || '';
+        document.getElementById('edit-category').value = t.category || 'Outros';
+        document.getElementById('edit-method').value   = t.method  || 'Dinheiro/Pix';
+        document.getElementById('edit-bank').value     = t.bank    || '';
+        document.getElementById('edit-transaction-modal')?.classList.remove('hidden');
+    }
+
+    _bindEditModal() {
+        document.getElementById('edit-save-btn')?.addEventListener('click', () => this._saveEdit());
+        document.getElementById('edit-cancel-btn')?.addEventListener('click', () => {
+            document.getElementById('edit-transaction-modal')?.classList.add('hidden');
+        });
+    }
+
+    async _saveEdit() {
+        if (!this._editingId) return;
+        const uid = state.currentUser?.uid;
+        if (!uid) return;
+
+        const desc     = document.getElementById('edit-desc')?.value?.trim();
+        const amount   = parseFloat(document.getElementById('edit-amount')?.value);
+        const category = document.getElementById('edit-category')?.value;
+        const method   = document.getElementById('edit-method')?.value;
+        const bank     = document.getElementById('edit-bank')?.value?.trim();
+
+        if (!desc || amount <= 0) {
+            ModalView.showToast('Preenche a descrição e o valor.', 'error');
+            return;
+        }
+
+        await TransactionModel.update(uid, this._editingId, { desc, amount, category, method, bank }, this._activeSpaceId());
+        this._editingId = null;
+        document.getElementById('edit-transaction-modal')?.classList.add('hidden');
+        ModalView.showToast('Registo actualizado!', 'success');
     }
 
     _bindSummaryActions() {

@@ -1,9 +1,13 @@
 import { auth } from '../firebase.js';
+import { DEFAULT_CATEGORIES } from '../config.js';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    signInWithPopup,
+    sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { UserModel } from '../models/UserModel.js';
 import { state } from '../state.js';
@@ -15,10 +19,13 @@ export class AuthController {
         this.onLogout = onLogout;
         this._profilePassword = "";
         this._profileName = "";
+        this._googleProvider = new GoogleAuthProvider();
     }
 
     init() {
         this._bindAuthForm();
+        this._bindGoogleLogin();
+        this._bindForgotPassword();
         this._bindLockScreen();
         this._bindProfileModal();
 
@@ -119,6 +126,59 @@ export class AuthController {
         });
     }
 
+    _bindGoogleLogin() {
+        const btn = document.getElementById('auth-google-btn');
+        if (!btn) return;
+        btn.onclick = async () => {
+            btn.disabled = true;
+            btn.innerText = 'A autenticar...';
+            try {
+                const result = await signInWithPopup(auth, this._googleProvider);
+                const user = result.user;
+                // Se é a primeira vez, guarda o perfil
+                const prefs = await UserModel.getPrefs(user.uid);
+                if (!prefs?.userName) {
+                    const name = user.displayName || user.email?.split('@')[0] || 'Utilizador';
+                    await UserModel.savePrefs(user.uid, {
+                        userName: name,
+                        appPassword: '',
+                        createdAt: new Date().toISOString()
+                    });
+                    ModalView.showToast(`Bem-vindo, ${name}!`, 'success');
+                }
+            } catch (err) {
+                if (err.code !== 'auth/popup-closed-by-user') {
+                    ModalView.showToast('Erro no login com Google: ' + (err.message || err.code), 'error');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Continuar com Google';
+            }
+        };
+    }
+
+    _bindForgotPassword() {
+        const link = document.getElementById('auth-forgot-password');
+        if (!link) return;
+        link.onclick = async () => {
+            const email = document.getElementById('auth-email')?.value?.trim();
+            if (!email) {
+                ModalView.showToast('Escreve o teu e-mail no campo acima primeiro.', 'error');
+                return;
+            }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                ModalView.showToast('E-mail de recuperação enviado! Verifica a caixa de entrada.', 'success');
+            } catch (err) {
+                const msgs = {
+                    'auth/user-not-found' : 'Não existe conta com este e-mail.',
+                    'auth/invalid-email'  : 'E-mail inválido.',
+                };
+                ModalView.showToast(msgs[err.code] || 'Erro: ' + err.message, 'error');
+            }
+        };
+    }
+
     _bindLockScreen() {
         const unlockBtn = document.getElementById('unlock-btn');
         if (unlockBtn) {
@@ -157,11 +217,12 @@ export class AuthController {
     async _loadProfile(uid) {
         try {
             const prefs = await UserModel.getPrefs(uid);
-            this._profilePassword = prefs?.appPassword || '';
-            this._profileName     = prefs?.userName    || '';
-            state.sharedSpaceId   = prefs?.sharedSpaceId || null;
-            state.budgets         = prefs?.budgets || {};
-            state.userName        = this._profileName;
+            this._profilePassword  = prefs?.appPassword      || '';
+            this._profileName      = prefs?.userName         || '';
+            state.sharedSpaceId    = prefs?.sharedSpaceId    || null;
+            state.budgets          = prefs?.budgets          || {};
+            state.customCategories = prefs?.customCategories || [];
+            state.userName         = this._profileName;
 
             this._updateAvatarUI(this._profileName);
 
@@ -215,6 +276,16 @@ export class AuthController {
         // Estado do espaço partilhado
         this._updateSharedSpaceUI();
 
+        // Metas de gastos dinâmicas
+        this._renderBudgetGoals();
+        if (!document.getElementById('btn-add-budget')._bound) {
+            document.getElementById('btn-add-budget')._bound = true;
+            document.getElementById('btn-add-budget').addEventListener('click', () => this._addBudgetGoal());
+            document.getElementById('budget-amount-input')?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') this._addBudgetGoal();
+            });
+        }
+
         document.getElementById('profile-modal')?.classList.remove('hidden');
     }
 
@@ -242,22 +313,76 @@ export class AuthController {
         const name = document.getElementById('profile-name-input')?.value?.trim() || this._profileName || 'Utilizador';
         const pin  = document.getElementById('profile-pass-input')?.value?.trim() || '';
 
-        const budgets = {};
-        document.querySelectorAll('[data-budget-cat]').forEach(inp => {
+        // Lê edições inline das metas (inputs com data-budget-edit)
+        document.querySelectorAll('[data-budget-edit]').forEach(inp => {
+            const cat = inp.dataset.budgetEdit;
             const val = parseFloat(inp.value);
-            if (val > 0) budgets[inp.dataset.budgetCat] = val;
+            if (val > 0) state.budgets[cat] = val;
+            else delete state.budgets[cat];
         });
 
-        await UserModel.savePrefs(state.currentUser.uid, { userName: name, appPassword: pin, budgets });
+        await UserModel.savePrefs(state.currentUser.uid, {
+            userName: name,
+            appPassword: pin,
+            budgets: state.budgets,
+            customCategories: state.customCategories
+        });
 
         this._profilePassword = pin;
         this._profileName     = name;
         state.userName        = name;
-        state.budgets         = budgets;
         this._updateAvatarUI(name);
         ModalView.showToast('Perfil guardado com sucesso!');
         document.getElementById('profile-modal')?.classList.add('hidden');
     }
+
+    _renderBudgetGoals() {
+        const container = document.getElementById('budget-goals-list');
+        if (!container) return;
+
+        const entries = Object.entries(state.budgets || {});
+        if (!entries.length) {
+            container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-2">Sem metas. Adiciona abaixo.</p>`;
+        } else {
+            container.innerHTML = entries.map(([cat, val]) => `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="flex-1 text-sm font-medium text-slate-700 truncate">${cat}</span>
+                    <input type="number" data-budget-edit="${cat}" value="${val}" min="1"
+                        class="w-28 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-right outline-none focus:ring-2 focus:ring-indigo-300">
+                    <span class="text-[10px] text-slate-400 shrink-0">R$/mês</span>
+                    <button data-budget-delete="${cat}" class="text-slate-300 hover:text-rose-500 transition-colors font-bold px-1 shrink-0">✕</button>
+                </div>
+            `).join('');
+
+            container.querySelectorAll('[data-budget-delete]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    delete state.budgets[btn.dataset.budgetDelete];
+                    this._renderBudgetGoals();
+                });
+            });
+        }
+
+        // Popula o select com categorias ainda sem meta (exceto Receita)
+        const sel = document.getElementById('budget-cat-select');
+        if (!sel) return;
+        const all  = [...DEFAULT_CATEGORIES, ...state.customCategories].filter(c => c !== 'Receita');
+        const used = Object.keys(state.budgets || {});
+        const free = all.filter(c => !used.includes(c));
+        sel.innerHTML = free.length
+            ? free.map(c => `<option value="${c}">${c}</option>`).join('')
+            : `<option value="" disabled selected>Todas as categorias já têm meta</option>`;
+    }
+
+    _addBudgetGoal() {
+        const cat = document.getElementById('budget-cat-select')?.value;
+        const val = parseFloat(document.getElementById('budget-amount-input')?.value);
+        if (!cat) { ModalView.showToast('Seleciona uma categoria.', 'error'); return; }
+        if (!val || val <= 0) { ModalView.showToast('Define um valor maior que zero.', 'error'); return; }
+        state.budgets = { ...state.budgets, [cat]: val };
+        document.getElementById('budget-amount-input').value = '';
+        this._renderBudgetGoals();
+    }
+
 
     logout() {
         signOut(auth).then(() => window.location.reload());
