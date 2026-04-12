@@ -4,6 +4,7 @@
  */
 import { TransactionModel } from '../models/TransactionModel.js';
 import { AIService } from '../services/AIService.js';
+import { StatementParser } from '../services/StatementParser.js';
 import { DashboardView } from '../views/DashboardView.js';
 import { ModalView } from '../views/ModalView.js';
 import { UserModel } from '../models/UserModel.js';
@@ -21,14 +22,20 @@ export class TransactionController {
 
     /** Inicializa todos os event listeners do controller */
     init() {
+        this._currentSort = 'newest';
         this._bindManualForm();
         this._bindAIInput();
         this._bindImportModal();
         this._bindSummaryActions();
         this._bindEditModal();
         this._bindInlineCategoryAdd();
+        this._bindCategoriesManager();
+        this._bindSortButtons();
         this._bindPdfReport();
         this.refreshMethodSelectors();
+        // Pré-preenche campo de data com hoje
+        const dateEl = document.getElementById('transaction-date');
+        if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
     }
 
     /**
@@ -50,7 +57,7 @@ export class TransactionController {
 
     /**
      * Popula todos os <select> de categoria com as categorias padrão + personalizadas.
-     * Chama-se após login e sempre que uma nova categoria é adicionada.
+     * Chama-se após login e sempre que uma nova categoria é adicionada/editada/removida.
      */
     refreshCategorySelectors() {
         const allCats = [...DEFAULT_CATEGORIES, ...state.customCategories];
@@ -63,6 +70,7 @@ export class TransactionController {
             ).join('');
             if (current && allCats.includes(current)) sel.value = current;
         });
+        this._renderCategoriesManager();
     }
 
     /** Regista os listeners do botão "+" inline para adicionar nova categoria no formulário */
@@ -154,9 +162,9 @@ export class TransactionController {
 
         DashboardView.renderTransactionList(filtered, {
             onTogglePaid: (id) => this.togglePaid(id),
-            onDelete: (id) => this.confirmDelete(id),
-            onEdit: (id) => this.editTransaction(id)
-        });
+            onDelete:     (id) => this.confirmDelete(id),
+            onEdit:       (id) => this.editTransaction(id)
+        }, this._currentSort || 'newest');
 
         const monthFilter = document.getElementById('month-filter');
         if (monthFilter) {
@@ -257,6 +265,8 @@ export class TransactionController {
             const rawInstall   = document.getElementById('installments')?.value;
             const installments = Math.max(1, parseInt(rawInstall, 10) || 1);
             const clientId     = document.getElementById('client-id-select')?.value || "";
+            const date         = document.getElementById('transaction-date')?.value
+                                 || new Date().toISOString().slice(0, 10);
 
             if (!desc || amount <= 0) {
                 ModalView.showToast("Preenche a descrição e o valor.", 'error');
@@ -264,7 +274,7 @@ export class TransactionController {
             }
 
             const dateKey = this.getSelectedMonth();
-            await this.addTransaction({ desc, amount, category, method, bank, place, installments, clientId, dateKey });
+            await this.addTransaction({ desc, amount, category, method, bank, place, installments, clientId, dateKey, date });
             form.reset();
 
             if (installments > 1) {
@@ -314,14 +324,185 @@ export class TransactionController {
         });
     }
 
-    /** Regista o listener do botão de processar extrato no modal de importação */
+    /** Regista todos os listeners do modal de importação (texto, CSV e PDF) */
     _bindImportModal() {
-        const importBtn = document.getElementById('import-process-btn');
-        if (!importBtn) return;
-        importBtn.onclick = async () => {
-            const text = document.getElementById('import-text')?.value?.trim();
-            if (text) await this._processAI(text, true);
+        let _csvItems    = [];   // transações parseadas do CSV aguardando confirmação
+        let _pdfFile     = null; // ficheiro PDF seleccionado
+
+        /* ── Lógica de tabs ─────────────────────────────────────────── */
+        const switchImportTab = (tab) => {
+            ['text', 'csv', 'pdf'].forEach(t => {
+                document.getElementById(`import-tab-${t}`)?.classList.toggle('hidden', t !== tab);
+            });
+            // Alterna botões de acção
+            document.querySelectorAll('.import-action-btn').forEach(btn => {
+                btn.classList.toggle('hidden', btn.dataset.forTab !== tab);
+            });
+            // Estilo dos botões de tab
+            document.querySelectorAll('.import-tab-btn').forEach(btn => {
+                const active = btn.dataset.importTab === tab;
+                btn.classList.toggle('bg-white',      active);
+                btn.classList.toggle('text-slate-900', active);
+                btn.classList.toggle('shadow-sm',      active);
+                btn.classList.toggle('text-slate-500', !active);
+                btn.classList.toggle('hover:bg-slate-50', !active);
+            });
         };
+
+        document.querySelectorAll('.import-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchImportTab(btn.dataset.importTab));
+        });
+
+        /* ── Tab Texto: processar com IA ────────────────────────────── */
+        const textBtn = document.getElementById('import-process-btn');
+        if (textBtn) {
+            textBtn.onclick = async () => {
+                const text = document.getElementById('import-text')?.value?.trim();
+                if (text) await this._processAI(text, true);
+            };
+        }
+
+        /* ── Tab CSV ────────────────────────────────────────────────── */
+        const csvInput    = document.getElementById('csv-file-input');
+        const csvImportBtn = document.getElementById('csv-import-btn');
+        const csvClearBtn  = document.getElementById('csv-clear-btn');
+        const csvPreview   = document.getElementById('csv-preview');
+        const csvPreviewList = document.getElementById('csv-preview-list');
+        const csvCount     = document.getElementById('csv-count');
+        const fmt          = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        const renderCSVPreview = (items) => {
+            _csvItems = items;
+            if (!csvPreview || !csvPreviewList || !csvCount) return;
+            csvCount.textContent = items.length;
+            csvPreviewList.innerHTML = items.map(i => `
+                <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl gap-2">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-semibold text-slate-800 truncate">${i.desc}</div>
+                        <div class="text-[10px] text-slate-400">${i.date} · ${i.category}${i.bank ? ' · ' + i.bank : ''}</div>
+                    </div>
+                    <div class="text-xs font-bold text-slate-900 shrink-0">${fmt(i.amount)}</div>
+                </div>
+            `).join('');
+            csvPreview.classList.remove('hidden');
+            if (csvImportBtn) {
+                csvImportBtn.textContent = `Importar ${items.length} transação(ões)`;
+                csvImportBtn.classList.remove('hidden');
+            }
+        };
+
+        const clearCSV = () => {
+            _csvItems = [];
+            if (csvInput)    csvInput.value    = '';
+            if (csvPreview)  csvPreview.classList.add('hidden');
+            if (csvImportBtn) csvImportBtn.classList.add('hidden');
+        };
+
+        const handleCSVFile = async (file) => {
+            if (!file) return;
+            const bank = document.getElementById('csv-bank-name')?.value?.trim() || '';
+            try {
+                const items = await StatementParser.parseCSV(file, bank);
+                renderCSVPreview(items);
+            } catch (err) {
+                ModalView.showToast(err.message || 'Erro ao processar CSV.', 'error');
+            }
+        };
+
+        csvInput?.addEventListener('change', () => handleCSVFile(csvInput.files?.[0]));
+        csvClearBtn?.addEventListener('click', clearCSV);
+
+        // Drag & drop na zona CSV
+        const csvDropzone = document.getElementById('csv-dropzone');
+        csvDropzone?.addEventListener('dragover',  (e) => { e.preventDefault(); csvDropzone.classList.add('border-indigo-400', 'bg-indigo-50/50'); });
+        csvDropzone?.addEventListener('dragleave', ()  => csvDropzone.classList.remove('border-indigo-400', 'bg-indigo-50/50'));
+        csvDropzone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            csvDropzone.classList.remove('border-indigo-400', 'bg-indigo-50/50');
+            const file = e.dataTransfer?.files?.[0];
+            if (file) handleCSVFile(file);
+        });
+
+        // Importar items CSV
+        csvImportBtn?.addEventListener('click', async () => {
+            if (!_csvItems.length) { ModalView.showToast('Selecciona um ficheiro CSV primeiro.', 'error'); return; }
+            const confirmed = await ModalView.openAIConfirmModal(_csvItems);
+            if (!confirmed) return;
+            const month = this.getSelectedMonth();
+            let count = 0;
+            for (const item of _csvItems) {
+                await this.addTransaction({
+                    desc:     item.desc,
+                    amount:   item.amount,
+                    category: item.category,
+                    method:   item.method,
+                    bank:     item.bank,
+                    date:     item.date,
+                    dateKey:  item.date ? item.date.slice(0, 7) : month
+                });
+                count++;
+            }
+            ModalView.showToast(`${count} transação(ões) importada(s)!`, 'success');
+            clearCSV();
+            ModalView.closeImportModal();
+        });
+
+        /* ── Tab PDF ────────────────────────────────────────────────── */
+        const pdfInput   = document.getElementById('pdf-file-input');
+        const pdfInfo    = document.getElementById('pdf-file-info');
+        const pdfName    = document.getElementById('pdf-file-name');
+        const pdfSize    = document.getElementById('pdf-file-size');
+        const pdfClear   = document.getElementById('pdf-clear-btn');
+        const pdfLoader  = document.getElementById('pdf-loader');
+        const pdfProcBtn = document.getElementById('pdf-process-btn');
+
+        const showPDFFile = (file) => {
+            _pdfFile = file;
+            if (pdfInfo)  pdfInfo.classList.remove('hidden');
+            if (pdfName)  pdfName.textContent = file.name;
+            if (pdfSize)  pdfSize.textContent = (file.size / 1024).toFixed(0) + ' KB';
+        };
+
+        const clearPDF = () => {
+            _pdfFile = null;
+            if (pdfInput) pdfInput.value = '';
+            if (pdfInfo)  pdfInfo.classList.add('hidden');
+        };
+
+        pdfInput?.addEventListener('change', () => { if (pdfInput.files?.[0]) showPDFFile(pdfInput.files[0]); });
+        pdfClear?.addEventListener('click', clearPDF);
+
+        // Drag & drop na zona PDF
+        const pdfDropzone = document.getElementById('pdf-dropzone');
+        pdfDropzone?.addEventListener('dragover',  (e) => { e.preventDefault(); pdfDropzone.classList.add('border-rose-400', 'bg-rose-50/30'); });
+        pdfDropzone?.addEventListener('dragleave', ()  => pdfDropzone.classList.remove('border-rose-400', 'bg-rose-50/30'));
+        pdfDropzone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            pdfDropzone.classList.remove('border-rose-400', 'bg-rose-50/30');
+            const file = e.dataTransfer?.files?.[0];
+            if (file?.type === 'application/pdf') showPDFFile(file);
+            else ModalView.showToast('Por favor selecciona um ficheiro .PDF.', 'error');
+        });
+
+        // Extrair texto do PDF e enviar para a IA
+        pdfProcBtn?.addEventListener('click', async () => {
+            if (!_pdfFile) { ModalView.showToast('Selecciona um ficheiro PDF primeiro.', 'error'); return; }
+            if (pdfLoader)  pdfLoader.classList.remove('hidden');
+            if (pdfProcBtn) pdfProcBtn.disabled = true;
+            try {
+                ModalView.showToast('A extrair texto do PDF…', 'info');
+                const text = await StatementParser.extractPDFText(_pdfFile);
+                // Preenche o textarea da aba texto e processa com IA
+                const textArea = document.getElementById('import-text');
+                if (textArea) textArea.value = text;
+                await this._processAI(text, true);
+            } catch (err) {
+                ModalView.showToast(err.message || 'Erro ao processar PDF.', 'error');
+            } finally {
+                if (pdfLoader)  pdfLoader.classList.add('hidden');
+                if (pdfProcBtn) pdfProcBtn.disabled = false;
+            }
+        });
     }
 
     /**
@@ -342,6 +523,9 @@ export class TransactionController {
         document.getElementById('edit-bank').value     = t.bank     || '';
         const editPlace = document.getElementById('edit-place');
         if (editPlace) editPlace.value = t.place || '';
+        const editDate = document.getElementById('edit-date');
+        if (editDate) editDate.value = t.date
+            || (t.createdAt ? t.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
         document.getElementById('edit-transaction-modal')?.classList.remove('hidden');
     }
 
@@ -365,16 +549,41 @@ export class TransactionController {
         const method   = document.getElementById('edit-method')?.value;
         const bank     = document.getElementById('edit-bank')?.value?.trim();
         const place    = document.getElementById('edit-place')?.value?.trim() || '';
+        const date     = document.getElementById('edit-date')?.value || '';
 
         if (!desc || amount <= 0) {
             ModalView.showToast('Preenche a descrição e o valor.', 'error');
             return;
         }
 
-        await TransactionModel.update(uid, this._editingId, { desc, amount, category, method, bank, place }, this._activeSpaceId());
+        await TransactionModel.update(uid, this._editingId, { desc, amount, category, method, bank, place, date }, this._activeSpaceId());
         this._editingId = null;
         document.getElementById('edit-transaction-modal')?.classList.add('hidden');
         ModalView.showToast('Registo actualizado!', 'success');
+    }
+
+    /** Regista os listeners dos botões de ordenação do histórico */
+    _bindSortButtons() {
+        const activeCls   = ['bg-indigo-600', 'text-white', 'shadow-sm'];
+        const inactiveCls = ['bg-slate-100',  'text-slate-500', 'hover:bg-slate-200'];
+
+        const syncStyles = () => {
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                const isActive = btn.dataset.sort === this._currentSort;
+                btn.classList.remove(...activeCls, ...inactiveCls);
+                btn.classList.add(...(isActive ? activeCls : inactiveCls));
+            });
+        };
+
+        syncStyles();
+
+        document.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._currentSort = btn.dataset.sort;
+                syncStyles();
+                this.refreshDashboard();
+            });
+        });
     }
 
     /** Regista o listener do botão de gerar relatório PDF com filtro de datas */
@@ -467,5 +676,128 @@ export class TransactionController {
                 else ModalView.setAILoading(false);
             }
         });
+    }
+
+    /**
+     * Regista os listeners do painel de gestão de categorias no dashboard.
+     * Permite adicionar, editar (inline) e excluir categorias personalizadas.
+     */
+    _bindCategoriesManager() {
+        const addBtn   = document.getElementById('btn-add-category-manager');
+        const addInput = document.getElementById('new-category-manager-input');
+        if (!addBtn || !addInput) return;
+
+        const doAdd = async () => {
+            const name = addInput.value.trim();
+            if (!name) { ModalView.showToast('Escreve o nome da categoria.', 'error'); return; }
+            const all = [...DEFAULT_CATEGORIES, ...state.customCategories];
+            if (all.some(c => c.toLowerCase() === name.toLowerCase())) {
+                ModalView.showToast('Essa categoria já existe.', 'error'); return;
+            }
+            state.customCategories = [...state.customCategories, name];
+            const uid = state.currentUser?.uid;
+            if (uid) await UserModel.savePrefs(uid, { customCategories: state.customCategories });
+            addInput.value = '';
+            this.refreshCategorySelectors();
+            ModalView.showToast(`Categoria "${name}" adicionada!`, 'success');
+        };
+
+        addBtn.addEventListener('click', doAdd);
+        addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+    }
+
+    /** Renderiza o painel de gestão de categorias no dashboard. */
+    _renderCategoriesManager() {
+        const container = document.getElementById('categories-manager-list');
+        if (!container) return;
+
+        const allCats = [...DEFAULT_CATEGORIES, ...state.customCategories];
+
+        container.innerHTML = allCats.map(cat => {
+            const isDefault = DEFAULT_CATEGORIES.includes(cat);
+            if (isDefault) {
+                return `
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50">
+                        <span class="flex-1 text-sm text-slate-600 font-medium truncate">${cat}</span>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wide border border-slate-200 rounded-md px-1.5 py-0.5">Padrão</span>
+                    </div>`;
+            }
+            return `
+                <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50/60 border border-indigo-100 group" data-cat-name="${this._esc(cat)}">
+                    <span class="flex-1 text-sm text-slate-800 font-medium truncate cat-label">${cat}</span>
+                    <input type="text" value="${this._esc(cat)}" class="cat-edit-input hidden flex-1 p-1 text-sm bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-300">
+                    <button class="cat-edit-btn shrink-0 text-slate-400 hover:text-indigo-600 transition text-xs font-bold px-1.5 py-1 rounded-lg hover:bg-indigo-100" title="Editar">✎</button>
+                    <button class="cat-save-btn hidden shrink-0 text-xs font-bold px-2 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">OK</button>
+                    <button class="cat-delete-btn shrink-0 text-slate-300 hover:text-rose-500 transition font-bold text-sm px-1" title="Excluir">✕</button>
+                </div>`;
+        }).join('');
+
+        /* ---- Bind de edição inline ---- */
+        container.querySelectorAll('[data-cat-name]').forEach(row => {
+            const oldName   = row.dataset.catName;
+            const label     = row.querySelector('.cat-label');
+            const input     = row.querySelector('.cat-edit-input');
+            const editBtn   = row.querySelector('.cat-edit-btn');
+            const saveBtn   = row.querySelector('.cat-save-btn');
+            const deleteBtn = row.querySelector('.cat-delete-btn');
+
+            editBtn.addEventListener('click', () => {
+                label.classList.add('hidden');
+                input.classList.remove('hidden');
+                saveBtn.classList.remove('hidden');
+                editBtn.classList.add('hidden');
+                input.focus();
+                input.select();
+            });
+
+            const doSave = async () => {
+                const newName = input.value.trim();
+                if (!newName) { ModalView.showToast('O nome não pode estar vazio.', 'error'); return; }
+                if (newName.toLowerCase() === oldName.toLowerCase()) {
+                    // Sem mudança — cancela edição
+                    label.classList.remove('hidden');
+                    input.classList.add('hidden');
+                    saveBtn.classList.add('hidden');
+                    editBtn.classList.remove('hidden');
+                    return;
+                }
+                const all = [...DEFAULT_CATEGORIES, ...state.customCategories];
+                if (all.some(c => c.toLowerCase() === newName.toLowerCase() && c !== oldName)) {
+                    ModalView.showToast('Já existe uma categoria com esse nome.', 'error'); return;
+                }
+                state.customCategories = state.customCategories.map(c => c === oldName ? newName : c);
+                const uid = state.currentUser?.uid;
+                if (uid) await UserModel.savePrefs(uid, { customCategories: state.customCategories });
+                this.refreshCategorySelectors();
+                ModalView.showToast(`Categoria renomeada para "${newName}".`, 'success');
+            };
+
+            saveBtn.addEventListener('click', doSave);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
+
+            deleteBtn.addEventListener('click', () => {
+                ModalView.openConfirmModal({
+                    title: 'Excluir Categoria',
+                    message: `Tens a certeza que queres excluir <strong>"${oldName}"</strong>?<br><span class="text-xs text-slate-400">Transações existentes com esta categoria não serão afectadas.</span>`,
+                    confirmLabel: 'Sim, excluir',
+                    onConfirm: async () => {
+                        state.customCategories = state.customCategories.filter(c => c !== oldName);
+                        const uid = state.currentUser?.uid;
+                        if (uid) await UserModel.savePrefs(uid, { customCategories: state.customCategories });
+                        this.refreshCategorySelectors();
+                        ModalView.showToast(`Categoria "${oldName}" removida.`, 'success');
+                    }
+                });
+            });
+        });
+    }
+
+    /**
+     * Escapa caracteres HTML para uso seguro em atributos.
+     * @param {string} str
+     * @returns {string}
+     */
+    _esc(str) {
+        return (str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 }

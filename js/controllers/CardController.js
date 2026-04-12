@@ -6,6 +6,34 @@ import { CardModel } from '../models/CardModel.js';
 import { state } from '../state.js';
 import { ModalView } from '../views/ModalView.js';
 
+/**
+ * Calcula o dia efectivo de fechamento/vencimento para um mês específico.
+ * Se o dia configurado cair em sábado (6) ou domingo (0), prorroga para a segunda-feira seguinte.
+ * Caso o dia não exista no mês (ex: dia 31 em Junho), usa o último dia do mês antes de ajustar.
+ *
+ * @param {number} year       - Ano (ex: 2026)
+ * @param {number} month      - Mês 0-indexed (0 = Janeiro … 11 = Dezembro)
+ * @param {number} configDay  - Dia configurado pelo utilizador (1–31)
+ * @returns {{ day: number, postponed: boolean, weekday: string }}
+ */
+function effectiveDay(year, month, configDay) {
+    // Clamp ao último dia do mês (ex: 31 de Junho → 30)
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const clamped = Math.min(configDay, lastDay);
+    const d = new Date(year, month, clamped);
+
+    const wd = d.getDay(); // 0 = Dom, 6 = Sáb
+    if (wd === 6) d.setDate(d.getDate() + 2); // Sáb → Seg
+    if (wd === 0) d.setDate(d.getDate() + 1); // Dom → Seg
+
+    const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    return {
+        day:       d.getDate(),
+        postponed: d.getDate() !== clamped,
+        weekday:   DAYS[d.getDay()]
+    };
+}
+
 export class CardController {
     /** Inicializa os event listeners da UI de cartões */
     init() {
@@ -86,18 +114,36 @@ export class CardController {
             return;
         }
 
-        container.innerHTML = state.cards.map((card, i) => `
-            <div class="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-3 mb-2">
-                <div>
-                    <span class="text-sm font-bold text-slate-800">${card.bankName}</span>
-                    <div class="flex gap-4 mt-0.5">
-                        <span class="text-[10px] text-slate-400">Fecha: dia <strong class="text-slate-600">${card.closingDay}</strong></span>
-                        <span class="text-[10px] text-slate-400">Vence: dia <strong class="text-slate-600">${card.dueDay}</strong></span>
+        const now = new Date();
+        const y   = now.getFullYear();
+        const m   = now.getMonth();
+
+        container.innerHTML = state.cards.map((card, i) => {
+            const closing = effectiveDay(y, m, card.closingDay);
+            const due     = effectiveDay(y, m, card.dueDay);
+
+            const closingLabel = closing.postponed
+                ? `<strong class="text-amber-600">${closing.day}</strong> <span class="text-amber-500">(${closing.weekday} — prorrogado)</span>`
+                : `<strong class="text-slate-600">${closing.day}</strong> <span class="text-slate-400">(${closing.weekday})</span>`;
+
+            const dueLabel = due.postponed
+                ? `<strong class="text-amber-600">${due.day}</strong> <span class="text-amber-500">(${due.weekday} — prorrogado)</span>`
+                : `<strong class="text-slate-600">${due.day}</strong> <span class="text-slate-400">(${due.weekday})</span>`;
+
+            return `
+                <div class="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-3 mb-2">
+                    <div>
+                        <span class="text-sm font-bold text-slate-800">${card.bankName}</span>
+                        <div class="flex gap-4 mt-0.5 flex-wrap">
+                            <span class="text-[10px] text-slate-400">Fecha: dia ${closingLabel}</span>
+                            <span class="text-[10px] text-slate-400">Vence: dia ${dueLabel}</span>
+                        </div>
+                        ${(closing.postponed || due.postponed) ? `<div class="text-[9px] text-amber-500 mt-1">Configurado: fecha dia ${card.closingDay} · vence dia ${card.dueDay}</div>` : ''}
                     </div>
+                    <button data-card-remove="${i}" class="text-slate-300 hover:text-rose-500 transition-colors text-sm font-bold px-2">✕</button>
                 </div>
-                <button data-card-remove="${i}" class="text-slate-300 hover:text-rose-500 transition-colors text-sm font-bold px-2">✕</button>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         container.querySelectorAll('[data-card-remove]').forEach(btn => {
             btn.addEventListener('click', () => this._removeCard(parseInt(btn.dataset.cardRemove, 10)));
@@ -132,17 +178,23 @@ export class CardController {
             const keyClose = `notif_close_${card.bankName}_${monthKey}`;
             const keyDue   = `notif_due_${card.bankName}_${monthKey}`;
 
-            if (today === card.closingDay && !localStorage.getItem(keyClose)) {
+            // Usa o dia efectivo (prorrogado se cair em fim-de-semana)
+            const effClose = effectiveDay(now.getFullYear(), now.getMonth(), card.closingDay);
+            const effDue   = effectiveDay(now.getFullYear(), now.getMonth(), card.dueDay);
+
+            if (today === effClose.day && !localStorage.getItem(keyClose)) {
+                const note = effClose.postponed ? ` (prorrogado do dia ${card.closingDay})` : '';
                 new Notification('NT Finanças — Fatura fechando hoje!', {
-                    body: `A fatura do ${card.bankName} fecha hoje (dia ${card.closingDay}). Verifique os seus gastos.`,
+                    body: `A fatura do ${card.bankName} fecha hoje (dia ${effClose.day}${note}). Verifique os seus gastos.`,
                     icon: 'NT.png'
                 });
                 localStorage.setItem(keyClose, '1');
             }
 
-            if (tomorrowDay === card.dueDay && !localStorage.getItem(keyDue)) {
+            if (tomorrowDay === effDue.day && !localStorage.getItem(keyDue)) {
+                const note = effDue.postponed ? ` (prorrogado do dia ${card.dueDay})` : '';
                 new Notification('NT Finanças — Fatura vence amanhã!', {
-                    body: `A fatura do ${card.bankName} vence amanhã (dia ${card.dueDay}). Não se esqueça de pagar!`,
+                    body: `A fatura do ${card.bankName} vence amanhã (dia ${effDue.day}${note}). Não se esqueça de pagar!`,
                     icon: 'NT.png'
                 });
                 localStorage.setItem(keyDue, '1');

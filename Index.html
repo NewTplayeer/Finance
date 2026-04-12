@@ -10,6 +10,7 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="text-slate-800">
@@ -59,19 +60,37 @@
             </div>
 
             <div class="space-y-4">
-                <!-- Campo de nome — visível apenas no registo -->
-                <div id="register-name-group" class="hidden">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">O teu nome completo</label>
-                    <input type="text" id="auth-name" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Ex: Bruno Silva">
+                <!-- Campos visíveis apenas no registo -->
+                <div id="register-name-group" class="hidden space-y-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Nome Completo *</label>
+                        <input type="text" id="auth-name" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Ex: Bruno Silva">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">CPF (opcional)</label>
+                            <input type="text" id="auth-cpf" maxlength="14" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" placeholder="000.000.000-00">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Telefone (opcional)</label>
+                            <input type="tel" id="auth-phone" maxlength="15" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" placeholder="(11) 99999-9999">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Data de Nascimento (opcional)</label>
+                        <input type="date" id="auth-birthdate" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
+                    </div>
                 </div>
                 <!-- Consentimento LGPD — visível apenas no registo -->
                 <div id="register-lgpd-group" class="hidden">
+                    <div class="terms-text bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-3 max-h-32 overflow-y-auto text-xs text-slate-500 leading-relaxed">
+                        <strong class="text-slate-700 block mb-1">Termos de Uso e Política de Privacidade</strong>
+                        Ao criar uma conta no NT Finanças, você concorda com os nossos Termos de Uso e Política de Privacidade. Seus dados pessoais (nome, e-mail, CPF e informações financeiras) são coletados exclusivamente para fins de gestão financeira pessoal, armazenados de forma segura no Firebase/Google Cloud e não são partilhados com terceiros sem o seu consentimento explícito. Você pode solicitar a exclusão dos seus dados a qualquer momento através das configurações do perfil. Este serviço está em conformidade com a <strong class="text-slate-700">Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018)</strong> e com o Regulamento Geral de Proteção de Dados (RGPD). Para mais informações, entre em contacto com o responsável pelo tratamento de dados.
+                    </div>
                     <label class="flex items-start gap-3 cursor-pointer">
                         <input type="checkbox" id="lgpd-consent-check" class="mt-1 w-4 h-4 accent-indigo-600 shrink-0">
-                        <span class="text-xs text-slate-500 leading-relaxed">
-                            Concordo com o tratamento dos meus dados pessoais para fins de gestão financeira, em conformidade com a
-                            <strong class="text-slate-700">Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018)</strong>.
-                            Os dados são armazenados de forma segura e não são partilhados com terceiros.
+                        <span class="text-xs text-slate-600 leading-relaxed font-medium">
+                            Li e concordo com os <button type="button" id="btn-open-terms" class="text-indigo-600 underline underline-offset-2 hover:text-indigo-800">Termos de Uso e Política de Privacidade</button>, e autorizo o tratamento dos meus dados pessoais nos termos da LGPD.
                         </span>
                     </label>
                 </div>
@@ -183,6 +202,7 @@
                     <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-indigo-600 text-white shadow-sm transition-all">Painel</button>
                     <button onclick="switchTab('clients')" id="tab-clients" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-100 transition-all">Clientes</button>
                     <button onclick="switchTab('analytics')" id="tab-analytics" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-100 transition-all">Análise</button>
+                    <button id="tab-admin" class="hidden px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-100 transition-all">⚙️ Admin</button>
                 </div>
             </div>
         </div>
@@ -272,20 +292,36 @@
                             <select id="client-id-select" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none sm:col-span-2">
                                 <option value="">Sem cliente vinculado</option>
                             </select>
-                            <button type="submit" class="bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition active:scale-95 shadow-xl">Guardar</button>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Data do registo</label>
+                                <input type="date" id="transaction-date" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                            </div>
+                            <button type="submit" class="bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition active:scale-95 shadow-xl sm:col-span-2">Guardar</button>
                         </form>
                     </div>
 
                     <!-- HISTÓRICO -->
                     <div class="bg-white rounded-[2.5rem] border border-slate-200 card-shadow overflow-hidden dark-card">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h2 class="text-sm font-bold text-slate-600 uppercase tracking-widest">
-                                Histórico: <span id="display-month" class="text-indigo-600">—</span>
-                            </h2>
-                            <div class="flex flex-wrap gap-2">
-                                <button onclick="generateMonthSummary()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-lg shadow-indigo-100 uppercase">Resumo Mês</button>
-                                <button id="btn-open-pdf-panel" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition hover:bg-emerald-700">PDF</button>
-                                <button onclick="openConfirmModal('clearAll')" class="bg-rose-50 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition hover:bg-rose-100">Limpar</button>
+                        <div class="p-6 border-b border-slate-100 bg-slate-50/50 space-y-3">
+                            <div class="flex justify-between items-center flex-wrap gap-2">
+                                <h2 class="text-sm font-bold text-slate-600 uppercase tracking-widest">
+                                    Histórico: <span id="display-month" class="text-indigo-600">—</span>
+                                </h2>
+                                <div class="flex flex-wrap gap-2">
+                                    <button onclick="generateMonthSummary()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold shadow-lg shadow-indigo-100 uppercase">Resumo Mês</button>
+                                    <button id="btn-open-pdf-panel" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition hover:bg-emerald-700">PDF</button>
+                                    <button onclick="openConfirmModal('clearAll')" class="bg-rose-50 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition hover:bg-rose-100">Limpar</button>
+                                </div>
+                            </div>
+                            <!-- Controles de ordenação -->
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">Ordenar:</span>
+                                <div class="flex gap-1 flex-wrap">
+                                    <button data-sort="newest"  class="sort-btn px-3 py-1.5 rounded-lg text-[10px] font-bold transition">Mais recente</button>
+                                    <button data-sort="oldest"  class="sort-btn px-3 py-1.5 rounded-lg text-[10px] font-bold transition">Mais antigo</button>
+                                    <button data-sort="highest" class="sort-btn px-3 py-1.5 rounded-lg text-[10px] font-bold transition">Maior valor</button>
+                                    <button data-sort="lowest"  class="sort-btn px-3 py-1.5 rounded-lg text-[10px] font-bold transition">Menor valor</button>
+                                </div>
                             </div>
                         </div>
                         <div class="overflow-x-auto">
@@ -294,6 +330,7 @@
                                     <tr>
                                         <th class="px-4 sm:px-8 py-5">Estado</th>
                                         <th class="px-4 sm:px-8 py-5">Descrição / Banco</th>
+                                        <th class="hidden md:table-cell px-6 py-5 text-center">Data</th>
                                         <th class="hidden sm:table-cell px-8 py-5 text-center">Meio</th>
                                         <th class="px-4 sm:px-8 py-5 text-right">Valor</th>
                                         <th class="px-4 sm:px-8 py-5 text-center">Ação</th>
@@ -363,8 +400,18 @@
                                     <input type="date" id="loan-start-date" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
                                 </div>
                                 <div>
-                                    <label class="text-[10px] text-slate-400 block mb-1">Vencimento</label>
+                                    <label class="text-[10px] text-slate-400 block mb-1">Vencimento Final</label>
                                     <input type="date" id="loan-due-date" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-[10px] text-slate-400 block mb-1">Nº de Parcelas</label>
+                                    <input type="number" step="1" min="1" id="loan-installments" placeholder="Ex: 12" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-slate-400 block mb-1">Dia de Pagamento</label>
+                                    <input type="number" step="1" min="1" max="31" id="loan-payment-day" placeholder="Ex: 10" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
                                 </div>
                             </div>
                             <select id="loan-method" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm cursor-pointer outline-none">
@@ -400,6 +447,17 @@
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow text-center dark-card">
                         <h2 class="text-xs font-bold text-slate-400 uppercase mb-6 tracking-[0.2em]">Gastos por Categoria</h2>
                         <div class="h-56"><canvas id="pieChart"></canvas></div>
+                    </div>
+
+                    <!-- GESTÃO DE CATEGORIAS -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-5 tracking-[0.2em]">Categorias</h3>
+                        <div id="categories-manager-list" class="mb-4 space-y-1.5"></div>
+                        <div class="flex gap-2 pt-3 border-t border-slate-100">
+                            <input type="text" id="new-category-manager-input" placeholder="Nova categoria…"
+                                class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                            <button id="btn-add-category-manager" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Adicionar</button>
+                        </div>
                     </div>
 
                     <!-- METAS DE GASTOS (edição inline) -->
@@ -572,6 +630,47 @@
             </div>
         </section>
 
+        <!-- SECÇÃO DE ADMINISTRAÇÃO -->
+        <section id="admin-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+            <!-- Cabeçalho -->
+            <div class="flex items-center gap-3 mb-8">
+                <span class="p-3 bg-rose-50 rounded-2xl text-2xl border border-rose-100">⚙️</span>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 tracking-tight">Painel de Administração</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Visível apenas para administradores. Dados em tempo real.</p>
+                </div>
+            </div>
+
+            <!-- Métricas globais -->
+            <div id="admin-stats" class="mb-8"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+
+                <!-- Logs de sistema -->
+                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Logs do Sistema (últimos 100)</h3>
+                        <button onclick="document.getElementById('admin-section').dispatchEvent(new Event('refresh-admin'))"
+                            class="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 transition">↻ Actualizar</button>
+                    </div>
+                    <div id="admin-logs-list">
+                        <p class="text-xs text-slate-400 italic text-center py-6">A carregar…</p>
+                    </div>
+                </div>
+
+                <!-- Lista de utilizadores -->
+                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-5">Utilizadores Registados</h3>
+                    <div id="admin-users-list">
+                        <p class="text-xs text-slate-400 italic text-center py-6">A carregar…</p>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
     </div><!-- /main-interface -->
 
     <!-- ═══════════════════ MODAIS ═══════════════════ -->
@@ -662,15 +761,116 @@
 
     <!-- MODAL IMPORTAR EXTRATO -->
     <div id="import-modal" class="fixed inset-0 z-[500] hidden flex items-center justify-center p-4 modal-overlay">
-        <div class="bg-white rounded-[3rem] max-w-lg w-full p-10 shadow-2xl border border-slate-100 leading-relaxed">
-            <h3 class="text-2xl font-bold text-slate-900 mb-2 uppercase">Importador IA</h3>
-            <p class="text-slate-400 text-xs mb-8">O Ollama processará todos os itens localmente.</p>
-            <textarea id="import-text" rows="10" class="w-full p-6 bg-slate-50 border border-slate-200 rounded-[1.5rem] mb-6 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="Copia aqui o texto do teu extrato..."></textarea>
-            <div class="flex gap-4">
-                <button onclick="closeImportModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl transition hover:bg-slate-200">Cancelar</button>
-                <button id="import-process-btn" class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-2xl transition shadow-xl shadow-indigo-100 flex items-center justify-center gap-2">
+        <div class="bg-white rounded-[2.5rem] max-w-2xl w-full shadow-2xl border border-slate-100 flex flex-col max-h-[92vh]">
+
+            <!-- Cabeçalho -->
+            <div class="flex justify-between items-center px-8 pt-8 pb-5 border-b border-slate-100 shrink-0">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 tracking-tight">Importar Extrato</h3>
+                    <p class="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wider">Suporta texto, CSV e PDF</p>
+                </div>
+                <button onclick="closeImportModal()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-sm transition">✕</button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex gap-1 bg-slate-100 rounded-2xl p-1 mx-8 mt-6 shrink-0">
+                <button data-import-tab="text" class="import-tab-btn flex-1 py-2.5 rounded-xl text-xs font-bold transition bg-white text-slate-900 shadow-sm">Colar Texto</button>
+                <button data-import-tab="csv"  class="import-tab-btn flex-1 py-2.5 rounded-xl text-xs font-bold transition text-slate-500 hover:bg-slate-50">CSV</button>
+                <button data-import-tab="pdf"  class="import-tab-btn flex-1 py-2.5 rounded-xl text-xs font-bold transition text-slate-500 hover:bg-slate-50">PDF</button>
+            </div>
+
+            <!-- Conteúdo scrollável -->
+            <div class="flex-1 overflow-y-auto px-8 py-6">
+
+                <!-- ─── Tab: Texto ─────────────────────────────────── -->
+                <div id="import-tab-text">
+                    <p class="text-xs text-slate-400 mb-3">Cola o texto do extrato abaixo. O Ollama interpretará e criará os registos automaticamente.</p>
+                    <textarea id="import-text" rows="10"
+                        class="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        placeholder="Copia aqui o texto do teu extrato bancário…"></textarea>
+                </div>
+
+                <!-- ─── Tab: CSV ───────────────────────────────────── -->
+                <div id="import-tab-csv" class="hidden">
+                    <p class="text-xs text-slate-400 mb-4">Suporta extratos em CSV do Nubank, Itaú, Bradesco, Inter, C6, Santander e outros. O sistema detecta as colunas automaticamente.</p>
+
+                    <!-- Zona de drop CSV -->
+                    <label id="csv-dropzone" class="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all mb-4">
+                        <span class="text-3xl">📄</span>
+                        <div class="text-center">
+                            <p class="text-sm font-bold text-slate-700">Clica para seleccionar ou arrasta aqui</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Ficheiros .CSV ou .TXT · Max 10 MB</p>
+                        </div>
+                        <input type="file" id="csv-file-input" accept=".csv,.txt" class="sr-only">
+                    </label>
+
+                    <!-- Campo banco opcional -->
+                    <input type="text" id="csv-bank-name" placeholder="Banco (ex: Nubank, Itaú) — opcional"
+                        class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 mb-4">
+
+                    <!-- Preview das transações detectadas -->
+                    <div id="csv-preview" class="hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prévia — <span id="csv-count">0</span> transações detectadas</p>
+                            <button id="csv-clear-btn" class="text-[10px] text-slate-400 hover:text-rose-500 font-bold">Limpar</button>
+                        </div>
+                        <div id="csv-preview-list" class="space-y-1.5 max-h-56 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+
+                <!-- ─── Tab: PDF ───────────────────────────────────── -->
+                <div id="import-tab-pdf" class="hidden">
+                    <p class="text-xs text-slate-400 mb-4">O PDF.js extrai o texto do documento e envia ao Ollama para interpretação. Funciona com PDFs digitais — PDFs digitalizados (fotos) não são suportados.</p>
+
+                    <!-- Zona de drop PDF -->
+                    <label id="pdf-dropzone" class="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-rose-300 hover:bg-rose-50/20 transition-all mb-4">
+                        <span class="text-3xl">📑</span>
+                        <div class="text-center">
+                            <p class="text-sm font-bold text-slate-700">Clica para seleccionar ou arrasta aqui</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Ficheiros .PDF · Max 20 MB</p>
+                        </div>
+                        <input type="file" id="pdf-file-input" accept=".pdf" class="sr-only">
+                    </label>
+
+                    <!-- Ficheiro seleccionado -->
+                    <div id="pdf-file-info" class="hidden bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3 mb-4">
+                        <span class="text-xl">📑</span>
+                        <div class="flex-1 min-w-0">
+                            <p id="pdf-file-name" class="text-sm font-semibold text-slate-800 truncate"></p>
+                            <p id="pdf-file-size" class="text-[10px] text-slate-400"></p>
+                        </div>
+                        <button id="pdf-clear-btn" class="text-slate-300 hover:text-rose-500 font-bold text-sm">✕</button>
+                    </div>
+
+                    <p class="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5">
+                        ⚠️ O Ollama tem de estar a correr localmente para processar o PDF.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Rodapé com acções -->
+            <div class="flex gap-3 px-8 pb-8 pt-4 border-t border-slate-100 shrink-0">
+                <button onclick="closeImportModal()" class="flex-1 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-2xl text-sm hover:bg-slate-200 transition">Cancelar</button>
+
+                <!-- Botão Texto -->
+                <button id="import-process-btn" data-for-tab="text"
+                    class="import-action-btn flex-1 py-3.5 bg-indigo-600 text-white font-bold rounded-2xl text-sm hover:bg-indigo-700 transition flex items-center justify-center gap-2">
                     <div id="import-loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
-                    Sincronizar
+                    Processar com IA
+                </button>
+
+                <!-- Botão CSV -->
+                <button id="csv-import-btn" data-for-tab="csv"
+                    class="import-action-btn hidden flex-1 py-3.5 bg-emerald-600 text-white font-bold rounded-2xl text-sm hover:bg-emerald-700 transition">
+                    Importar transações
+                </button>
+
+                <!-- Botão PDF -->
+                <button id="pdf-process-btn" data-for-tab="pdf"
+                    class="import-action-btn hidden flex-1 py-3.5 bg-rose-600 text-white font-bold rounded-2xl text-sm hover:bg-rose-700 transition flex items-center justify-center gap-2">
+                    <div id="pdf-loader" class="hidden animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+                    Extrair e Processar
                 </button>
             </div>
         </div>
@@ -821,6 +1021,10 @@
                 </select>
                 <input type="text" id="edit-bank" placeholder="Banco (Ex: Nubank)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
                 <input type="text" id="edit-place" placeholder="Local / Estabelecimento (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Data do registo</label>
+                    <input type="date" id="edit-date" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                </div>
             </div>
             <div class="flex flex-col gap-3 mt-6">
                 <button id="edit-save-btn" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl">Guardar Alterações</button>
@@ -837,6 +1041,6 @@
             });
         });
     </script>
-    <script type="module" src="js/app.js?v=6"></script>
+    <script type="module" src="js/app.js?v=11"></script>
 </body>
 </html>

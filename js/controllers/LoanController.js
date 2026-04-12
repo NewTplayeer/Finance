@@ -66,7 +66,8 @@ export class LoanController {
 
     /** Limpa os campos do formulário de empréstimo */
     _clearForm() {
-        ['loan-debtor', 'loan-amount', 'loan-interest', 'loan-start-date', 'loan-due-date', 'loan-notes'].forEach(id => {
+        ['loan-debtor', 'loan-amount', 'loan-interest', 'loan-start-date', 'loan-due-date',
+         'loan-installments', 'loan-payment-day', 'loan-notes'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -74,19 +75,21 @@ export class LoanController {
 
     /** Cria um novo empréstimo a partir dos dados do formulário */
     async _createLoan() {
-        const uid     = state.currentUser?.uid;
-        const debtor  = document.getElementById('loan-debtor')?.value?.trim();
-        const amount  = parseFloat(document.getElementById('loan-amount')?.value);
-        const rate    = parseFloat(document.getElementById('loan-interest')?.value) || 0;
-        const start   = document.getElementById('loan-start-date')?.value;
-        const due     = document.getElementById('loan-due-date')?.value;
-        const method  = document.getElementById('loan-method')?.value || 'Dinheiro';
-        const notes   = document.getElementById('loan-notes')?.value?.trim();
+        const uid          = state.currentUser?.uid;
+        const debtor       = document.getElementById('loan-debtor')?.value?.trim();
+        const amount       = parseFloat(document.getElementById('loan-amount')?.value);
+        const rate         = parseFloat(document.getElementById('loan-interest')?.value) || 0;
+        const start        = document.getElementById('loan-start-date')?.value;
+        const due          = document.getElementById('loan-due-date')?.value;
+        const installments = parseInt(document.getElementById('loan-installments')?.value) || 1;
+        const paymentDay   = parseInt(document.getElementById('loan-payment-day')?.value) || null;
+        const method       = document.getElementById('loan-method')?.value || 'Dinheiro';
+        const notes        = document.getElementById('loan-notes')?.value?.trim();
 
         if (!uid || !debtor) { ModalView.showToast('Indica o nome do devedor.', 'error'); return; }
         if (!amount || amount <= 0) { ModalView.showToast('Indica um valor válido.', 'error'); return; }
 
-        await LoanModel.add(uid, { debtor, amount, interestRate: rate, startDate: start, dueDate: due, method, notes });
+        await LoanModel.add(uid, { debtor, amount, interestRate: rate, startDate: start, dueDate: due, installments, paymentDay, method, notes });
         document.getElementById('loan-form')?.classList.add('hidden');
         this._clearForm();
         ModalView.showToast(`Empréstimo de ${fmt(amount)} a ${debtor} registado!`, 'success');
@@ -115,9 +118,19 @@ export class LoanController {
             : '';
 
         container.innerHTML = summary + this._loans.map(loan => {
-            const total   = LoanModel.calcTotal(loan.amount, loan.interestRate, loan.startDate, loan.dueDate);
-            const hasInt  = loan.interestRate > 0;
-            const overdue = loan.dueDate && !loan.paid && new Date(loan.dueDate) < new Date();
+            const total        = LoanModel.calcTotal(loan.amount, loan.interestRate, loan.startDate, loan.dueDate);
+            const hasInt       = loan.interestRate > 0;
+            const installments = loan.installments || 1;
+            const installValue = total / installments;
+            const overdue      = loan.dueDate && !loan.paid && new Date(loan.dueDate) < new Date();
+
+            const installBadge = installments > 1
+                ? `<span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-bold">${installments}x ${fmt(installValue)}</span>`
+                : '';
+            const paymentBadge = loan.paymentDay
+                ? `<span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-semibold">Todo dia ${loan.paymentDay}</span>`
+                : '';
+
             return `
                 <div class="flex items-start gap-3 p-3 rounded-2xl mb-2 ${loan.paid ? 'bg-emerald-50/50 opacity-70' : overdue ? 'bg-rose-50' : 'bg-slate-50'}">
                     <button data-loan-toggle="${loan.id}" data-loan-paid="${loan.paid}"
@@ -127,12 +140,13 @@ export class LoanController {
                     </button>
                     <div class="flex-1 min-w-0">
                         <div class="flex justify-between items-start gap-2">
-                            <div>
+                            <div class="min-w-0">
                                 <div class="text-sm font-bold text-slate-800 ${loan.paid ? 'line-through text-slate-400' : ''}">${loan.debtor}</div>
                                 <div class="text-[10px] text-slate-400 mt-0.5">
                                     ${loan.method} · ${fmtDate(loan.startDate)}${loan.dueDate ? ` → ${fmtDate(loan.dueDate)}` : ''}
                                     ${overdue ? '<span class="text-rose-500 font-bold ml-1">VENCIDO</span>' : ''}
                                 </div>
+                                ${(installBadge || paymentBadge) ? `<div class="flex flex-wrap gap-1 mt-1.5">${installBadge}${paymentBadge}</div>` : ''}
                                 ${loan.notes ? `<div class="text-[10px] text-slate-400 mt-0.5 italic">${loan.notes}</div>` : ''}
                             </div>
                             <div class="text-right shrink-0">

@@ -11,13 +11,32 @@ import {
     onAuthStateChanged,
     GoogleAuthProvider,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     sendPasswordResetEmail,
     setPersistence,
     browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { UserModel } from '../models/UserModel.js';
+import { AdminModel } from '../models/AdminModel.js';
+import { LogModel } from '../models/LogModel.js';
 import { state } from '../state.js';
 import { ModalView } from '../views/ModalView.js';
+
+/** Formata input de CPF enquanto o utilizador digita: 000.000.000-00 */
+const maskCpf = (v) => v.replace(/\D/g, '').slice(0, 11)
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+
+/** Formata input de telefone enquanto o utilizador digita: (11) 99999-9999 */
+const maskPhone = (v) => {
+    const d = v.replace(/\D/g, '').slice(0, 11);
+    if (d.length <= 2)  return d.replace(/(\d{0,2})/, '($1');
+    if (d.length <= 7)  return d.replace(/(\d{2})(\d+)/, '($1) $2');
+    if (d.length <= 10) return d.replace(/(\d{2})(\d{4})(\d+)/, '($1) $2-$3');
+    return d.replace(/(\d{2})(\d{5})(\d+)/, '($1) $2-$3');
+};
 
 export class AuthController {
     /**
@@ -36,6 +55,26 @@ export class AuthController {
         // Garante persistência local mesmo após fechar o browser
         try { await setPersistence(auth, browserLocalPersistence); } catch (_) {}
 
+        // Lida com o resultado do redirect do Google (mobile / popup bloqueado)
+        try {
+            const result = await getRedirectResult(auth);
+            if (result?.user) {
+                const user  = result.user;
+                const prefs = await UserModel.getPrefs(user.uid);
+                if (!prefs?.userName) {
+                    const name = user.displayName || user.email?.split('@')[0] || 'Utilizador';
+                    await UserModel.savePrefs(user.uid, {
+                        userName: name, appPassword: '', lgpdConsent: true,
+                        createdAt: new Date().toISOString()
+                    });
+                }
+                this._skipNextLoginLog = true;
+                await LogModel.write('user_login_google', user.uid, {
+                    email: user.email || '', name: user.displayName || ''
+                });
+            }
+        } catch (_) {}
+
         this._bindAuthForm();
         this._bindGoogleLogin();
         this._bindForgotPassword();
@@ -50,7 +89,25 @@ export class AuthController {
                 const idEl = document.getElementById('user-id-display');
                 if (idEl) idEl.innerText = `ID: ${user.uid.slice(0, 8)}`;
                 await this._loadProfile(user.uid);
+                // Regista/actualiza o utilizador no painel de admin
+                try {
+                    await AdminModel.saveUser(user.uid, {
+                        name:  state.userName || user.displayName || '',
+                        email: user.email || ''
+                    });
+                } catch (_) {}
                 if (this.onLogin) this.onLogin(user);
+                // Log de login — evita duplicação quando o log já foi escrito
+                // por registo, Google popup ou Google redirect
+                if (!this._skipNextLoginLog) {
+                    const method = user.providerData?.[0]?.providerId === 'google.com'
+                        ? 'user_login_google' : 'user_login_email';
+                    LogModel.write(method, user.uid, {
+                        email: user.email || '',
+                        name:  state.userName || user.displayName || ''
+                    });
+                }
+                this._skipNextLoginLog = false;
             } else {
                 state.currentUser = null;
                 document.getElementById('auth-screen')?.classList.remove('hidden');
@@ -67,6 +124,28 @@ export class AuthController {
         const toggleBtn = document.getElementById('auth-toggle-btn');
         const nameGroup = document.getElementById('register-name-group');
         const lgpdGroup = document.getElementById('register-lgpd-group');
+
+        // Máscaras de CPF e telefone
+        document.getElementById('auth-cpf')?.addEventListener('input', (e) => {
+            e.target.value = maskCpf(e.target.value);
+        });
+        document.getElementById('auth-phone')?.addEventListener('input', (e) => {
+            e.target.value = maskPhone(e.target.value);
+        });
+
+        // Botão "Ver Termos" abre modal com termos completos
+        document.getElementById('btn-open-terms')?.addEventListener('click', () => {
+            const termsText = document.querySelector('#register-lgpd-group .terms-text')?.innerHTML
+                || 'Consulte os Termos de Uso e Política de Privacidade no formulário de registo.';
+            ModalView.openConfirmModal({
+                title: 'Termos de Uso e Política de Privacidade',
+                message: `<div class="text-xs text-slate-600 leading-relaxed max-h-80 overflow-y-auto pr-1">${termsText}</div>`,
+                confirmLabel: 'Fechar',
+                confirmClass: 'w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl transition hover:bg-indigo-700',
+                onConfirm: () => {},
+                onCancel: null
+            });
+        });
 
         if (toggleBtn) {
             toggleBtn.onclick = () => {
@@ -113,13 +192,28 @@ export class AuthController {
                     if (authMode === 'login') {
                         await signInWithEmailAndPassword(auth, email, password);
                     } else {
+                        const cpf       = document.getElementById('auth-cpf')?.value?.trim() || '';
+                        const phone     = document.getElementById('auth-phone')?.value?.trim() || '';
+                        const birthdate = document.getElementById('auth-birthdate')?.value || '';
+
                         const cred = await createUserWithEmailAndPassword(auth, email, password);
+                        this._skipNextLoginLog = true;
                         await UserModel.savePrefs(cred.user.uid, {
                             userName: name,
                             appPassword: '',
                             lgpdConsent: true,
+                            lgpdConsentAt: new Date().toISOString(),
+                            cpf,
+                            phone,
+                            birthdate,
                             createdAt: new Date().toISOString()
                         });
+                        // Regista o novo utilizador na coleção de admin
+                        try {
+                            await AdminModel.registerUser(cred.user.uid, { name, email, cpf });
+                        } catch (_) {}
+                        // Log de registo
+                        LogModel.write('user_registered', cred.user.uid, { email, name });
                         ModalView.showToast(`Bem-vindo, ${name}! Conta criada com sucesso!`);
                     }
                 } catch (err) {
@@ -167,14 +261,26 @@ export class AuthController {
                     });
                     ModalView.showToast(`Bem-vindo, ${name}!`, 'success');
                 }
+                this._skipNextLoginLog = true;
+                LogModel.write('user_login_google', user.uid, {
+                    email: user.email || '', name: user.displayName || ''
+                });
             } catch (err) {
-                if (err.code !== 'auth/popup-closed-by-user') {
+                if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-cancelled') {
+                    // Fallback para redirect em ambientes que bloqueiam popups (mobile/Safari)
+                    try {
+                        await signInWithRedirect(auth, this._googleProvider);
+                    } catch (_) {}
+                } else if (err.code !== 'auth/popup-closed-by-user') {
                     ModalView.showToast('Erro no login com Google: ' + (err.message || err.code), 'error');
+                    btn.disabled  = false;
+                    btn.innerText = 'Continuar com Google';
                 }
-            } finally {
-                btn.disabled  = false;
-                btn.innerText = 'Continuar com Google';
+                // Se redirect iniciado, o btn fica disabled (página vai recarregar)
+                return;
             }
+            btn.disabled  = false;
+            btn.innerText = 'Continuar com Google';
         };
     }
 
@@ -507,7 +613,15 @@ export class AuthController {
     }
 
     /** Termina a sessão e recarrega a página */
-    logout() {
-        signOut(auth).then(() => window.location.reload());
+    async logout() {
+        const user = state.currentUser;
+        if (user) {
+            await LogModel.write('user_logout', user.uid, {
+                email: user.email || '',
+                name:  state.userName || user.displayName || ''
+            });
+        }
+        await signOut(auth);
+        window.location.reload();
     }
 }

@@ -31,6 +31,7 @@ export const TransactionModel = {
         installments = 1,
         method       = 'Dinheiro/Pix',
         dateKey      = currentMonthKey,
+        date         = '',
         bank         = '',
         place        = '',
         clientId     = ''
@@ -39,10 +40,18 @@ export const TransactionModel = {
         const n   = Math.max(1, Math.floor(installments));
         const part = parseFloat((amount / n).toFixed(2));
         const [baseYear, baseMonth] = dateKey.split('-').map(Number);
+        const baseDate = date || new Date().toISOString().slice(0, 10);
 
         for (let i = 0; i < n; i++) {
             const d = new Date(baseYear, baseMonth - 1 + i, 1);
             const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            // Para parcelas além da 1ª, ajusta a data ao mês correspondente
+            let entryDate = baseDate;
+            if (i > 0) {
+                const [dy, dm, dd] = baseDate.split('-').map(Number);
+                const pd = new Date(dy, dm - 1 + i, dd);
+                entryDate = pd.toISOString().slice(0, 10);
+            }
             const isPaid = (method === 'Dinheiro/Pix' || method === 'Cartão Débito' || category === 'Receita');
             await addDoc(ref, {
                 desc:     n > 1 ? `${desc} (${i + 1}/${n})` : desc,
@@ -53,6 +62,7 @@ export const TransactionModel = {
                 place:    place || '',
                 clientId: clientId || '',
                 monthKey,
+                date:     entryDate,
                 paid:     isPaid,
                 creator:  uid,
                 createdAt: new Date().toISOString()
@@ -77,8 +87,10 @@ export const TransactionModel = {
      * @param {{ desc, amount, category, method, bank, place }} data
      * @param {string|null} spaceId
      */
-    async update(uid, id, { desc, amount, category, method, bank, place }, spaceId = null) {
-        await updateDoc(getActiveDocRef(uid, id, spaceId), { desc, amount, category, method, bank, place: place || '' });
+    async update(uid, id, { desc, amount, category, method, bank, place, date }, spaceId = null) {
+        const payload = { desc, amount, category, method, bank, place: place || '' };
+        if (date) payload.date = date;
+        await updateDoc(getActiveDocRef(uid, id, spaceId), payload);
     },
 
     /**
