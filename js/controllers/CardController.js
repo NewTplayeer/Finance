@@ -1,24 +1,35 @@
+/**
+ * CardController — gere os cartões bancários com datas de fatura e notificações automáticas.
+ * Persiste os cartões no Firestore via CardModel e usa a Notifications API do browser.
+ */
 import { CardModel } from '../models/CardModel.js';
 import { state } from '../state.js';
 import { ModalView } from '../views/ModalView.js';
 
 export class CardController {
+    /** Inicializa os event listeners da UI de cartões */
     init() {
         this._bindUI();
     }
 
+    /**
+     * Carrega os cartões do Firestore e agenda verificação de notificações.
+     * @param {string} uid - UID do utilizador autenticado
+     */
     async loadCards(uid) {
         state.cards = await CardModel.getCards(uid);
         this._renderCardsList();
         this._scheduleNotificationCheck();
     }
 
+    /** Regista os listeners dos botões Adicionar e Activar Notificações */
     _bindUI() {
         document.getElementById('btn-add-card')?.addEventListener('click', () => this._addCard());
         document.getElementById('btn-enable-notifications')?.addEventListener('click', () => this.requestNotificationPermission());
         this.syncNotificationBtn();
     }
 
+    /** Lê os campos do formulário e adiciona um novo cartão ao estado e ao Firestore */
     _addCard() {
         const bankName   = document.getElementById('card-bank-name')?.value?.trim();
         const closingDay = parseInt(document.getElementById('card-closing-day')?.value, 10);
@@ -41,25 +52,31 @@ export class CardController {
         this._persist();
         this._renderCardsList();
 
-        document.getElementById('card-bank-name').value = '';
-        document.getElementById('card-closing-day').value = '';
-        document.getElementById('card-due-day').value = '';
+        document.getElementById('card-bank-name').value    = '';
+        document.getElementById('card-closing-day').value  = '';
+        document.getElementById('card-due-day').value      = '';
         ModalView.showToast(`Cartão ${bankName} adicionado.`, 'success');
     }
 
+    /**
+     * Remove um cartão pelo índice no array e persiste a alteração.
+     * @param {number} index - índice do cartão em state.cards
+     */
     _removeCard(index) {
-        const name = state.cards[index]?.bankName || '';
-        state.cards = state.cards.filter((_, i) => i !== index);
+        const name   = state.cards[index]?.bankName || '';
+        state.cards  = state.cards.filter((_, i) => i !== index);
         this._persist();
         this._renderCardsList();
         ModalView.showToast(`Cartão ${name} removido.`);
     }
 
+    /** Guarda o array de cartões no Firestore */
     async _persist() {
         const uid = state.currentUser?.uid;
         if (uid) await CardModel.saveCards(uid, state.cards);
     }
 
+    /** Renderiza a lista de cartões no container #cards-list do modal de perfil */
     _renderCardsList() {
         const container = document.getElementById('cards-list');
         if (!container) return;
@@ -87,12 +104,19 @@ export class CardController {
         });
     }
 
+    /**
+     * Executa a verificação imediatamente e agenda re-verificação a cada hora.
+     * Usa setInterval para não bloquear o event loop.
+     */
     _scheduleNotificationCheck() {
         this._checkNotifications();
-        // Verifica a cada hora
         setInterval(() => this._checkNotifications(), 60 * 60 * 1000);
     }
 
+    /**
+     * Verifica se hoje é dia de fechamento ou dia anterior ao vencimento de algum cartão
+     * e dispara notificações do browser (com deduplicação por mês via localStorage).
+     */
     _checkNotifications() {
         if (!state.cards.length) return;
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -108,7 +132,6 @@ export class CardController {
             const keyClose = `notif_close_${card.bankName}_${monthKey}`;
             const keyDue   = `notif_due_${card.bankName}_${monthKey}`;
 
-            // Notificação de fechamento: dispara no dia de fechamento
             if (today === card.closingDay && !localStorage.getItem(keyClose)) {
                 new Notification('NT Finanças — Fatura fechando hoje!', {
                     body: `A fatura do ${card.bankName} fecha hoje (dia ${card.closingDay}). Verifique os seus gastos.`,
@@ -117,7 +140,6 @@ export class CardController {
                 localStorage.setItem(keyClose, '1');
             }
 
-            // Notificação de vencimento: dispara 1 dia antes
             if (tomorrowDay === card.dueDay && !localStorage.getItem(keyDue)) {
                 new Notification('NT Finanças — Fatura vence amanhã!', {
                     body: `A fatura do ${card.bankName} vence amanhã (dia ${card.dueDay}). Não se esqueça de pagar!`,
@@ -128,6 +150,7 @@ export class CardController {
         });
     }
 
+    /** Solicita permissão de notificações ao browser e actualiza o botão */
     async requestNotificationPermission() {
         if (!('Notification' in window)) {
             ModalView.showToast('Notificações não suportadas neste browser.', 'error');
@@ -143,18 +166,19 @@ export class CardController {
         }
     }
 
+    /** Actualiza o estilo e texto do botão de notificações conforme o estado actual da permissão */
     syncNotificationBtn() {
         const btn = document.getElementById('btn-enable-notifications');
         if (!btn || !('Notification' in window)) return;
         const perm = Notification.permission;
         if (perm === 'granted') {
-            btn.innerHTML = '🔔 Notificações Activas';
-            btn.disabled = true;
-            btn.className = 'w-full py-3 bg-emerald-50 text-emerald-700 font-bold rounded-2xl border border-emerald-200 text-xs';
+            btn.innerHTML  = '🔔 Notificações Activas';
+            btn.disabled   = true;
+            btn.className  = 'w-full py-3 bg-emerald-50 text-emerald-700 font-bold rounded-2xl border border-emerald-200 text-xs';
         } else {
-            btn.innerHTML = '🔕 Activar Notificações de Faturas';
-            btn.disabled = false;
-            btn.className = 'w-full py-3 bg-indigo-50 text-indigo-600 font-bold rounded-2xl border border-indigo-200 hover:bg-indigo-100 transition text-xs';
+            btn.innerHTML  = '🔕 Activar Notificações de Faturas';
+            btn.disabled   = false;
+            btn.className  = 'w-full py-3 bg-indigo-50 text-indigo-600 font-bold rounded-2xl border border-indigo-200 hover:bg-indigo-100 transition text-xs';
         }
     }
 }

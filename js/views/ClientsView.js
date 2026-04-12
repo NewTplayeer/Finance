@@ -1,3 +1,9 @@
+/**
+ * ClientsView — renderização da tabela de clientes/fornecedores e do modal de edição.
+ * Todas as funções são puras: recebem dados e actualizam o DOM.
+ */
+
+/** Mapa de classes CSS para o badge de tipo de cliente */
 const TYPE_BADGE = {
     'Cliente':    'bg-blue-50 text-blue-600 border border-blue-100',
     'Fornecedor': 'bg-amber-50 text-amber-600 border border-amber-100',
@@ -5,6 +11,13 @@ const TYPE_BADGE = {
 };
 
 export const ClientsView = {
+    /**
+     * Renderiza a tabela de clientes filtrando pelo texto de pesquisa.
+     * Substitui o tbody para eliminar listeners anteriores.
+     * @param {Array} clients - lista de clientes do estado
+     * @param {string} search - filtro de pesquisa (lowercase)
+     * @param {{ onEdit, onDelete }} callbacks
+     */
     render(clients, search = '', { onEdit, onDelete } = {}) {
         const oldTbody = document.getElementById('clients-list');
         const countEl = document.getElementById('clients-count');
@@ -63,6 +76,10 @@ export const ClientsView = {
         });
     },
 
+    /**
+     * Abre o modal de edição pré-preenchido com os dados do cliente.
+     * @param {Object} client
+     */
     openEditModal(client) {
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
         set('edit-client-name', client.name || '');
@@ -73,6 +90,7 @@ export const ClientsView = {
         document.getElementById('client-modal')?.classList.remove('hidden');
     },
 
+    /** Fecha o modal de edição de cliente */
     closeEditModal() {
         document.getElementById('client-modal')?.classList.add('hidden');
     }

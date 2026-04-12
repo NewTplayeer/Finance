@@ -1,3 +1,7 @@
+/**
+ * app.js — Ponto de entrada da aplicação NT Finanças.
+ * Instancia e liga todos os controllers; inicializa os gráficos após o DOM estar pronto.
+ */
 import { state } from './state.js';
 import { DashboardView } from './views/DashboardView.js';
 import { AuthController } from './controllers/AuthController.js';
@@ -7,22 +11,29 @@ import { NavigationController } from './controllers/NavigationController.js';
 import { SharingController } from './controllers/SharingController.js';
 import { OpenFinanceController } from './controllers/OpenFinanceController.js';
 import { CardController } from './controllers/CardController.js';
+import { SavingsController } from './controllers/SavingsController.js';
+import { LoanController } from './controllers/LoanController.js';
+import { AnalyticsController } from './controllers/AnalyticsController.js';
 
-// --- Inicialização dos Controllers ---
+/** Controller de navegação: gere o filtro de mês, tabs e modo pessoal/partilhado */
 const navController = new NavigationController({
-    onMonthChange: () => transactionController.refreshDashboard(),
-    onModeChange: (mode) => {
+    onMonthChange:  () => transactionController.refreshDashboard(),
+    onModeChange:   (mode) => {
         transactionController.restartSync();
         DashboardView.updateViewModeUI(mode);
-    }
+    },
+    onAnalyticsTab: () => analyticsController.render()
 });
 
+/** Controller de transações: CRUD, dashboard e processamento IA */
 const transactionController = new TransactionController({
     getSelectedMonth: () => navController.getSelectedMonth()
 });
 
+/** Controller de clientes/fornecedores */
 const clientsController = new ClientsController();
 
+/** Controller de espaço partilhado */
 const sharingController = new SharingController({
     onModeChange: (mode) => {
         transactionController.restartSync();
@@ -30,26 +41,43 @@ const sharingController = new SharingController({
     }
 });
 
+/** Controller de Open Finance (Pluggy.ai) */
 const openFinanceController = new OpenFinanceController({
     onImport: (t) => transactionController.addTransaction(t)
 });
 
+/** Controller de cartões/faturas e notificações */
 const cardController = new CardController();
 
+/** Controller de cofrinhos (poupanças) */
+const savingsController = new SavingsController();
+
+/** Controller de empréstimos com cálculo de juros */
+const loanController = new LoanController();
+
+/** Controller de análise e estatísticas globais */
+const analyticsController = new AnalyticsController();
+
+/** Controller de autenticação — inicia todos os syncs ao fazer login */
 const authController = new AuthController({
     onLogin: async (user) => {
         transactionController.startSync();
         clientsController.startSync();
+        savingsController.startSync(user.uid);
+        loanController.startSync(user.uid);
         await cardController.loadCards(user.uid);
         transactionController.refreshCategorySelectors();
+        transactionController.refreshMethodSelectors();
     },
     onLogout: () => {
         transactionController.stopSync();
         clientsController.stopSync();
+        savingsController.stopSync();
+        loanController.stopSync();
     }
 });
 
-// --- Bootstrap ---
+/** Bootstrap — executado após o DOM estar completamente carregado */
 window.addEventListener('DOMContentLoaded', () => {
     // Inicializar gráficos — guarda defensiva: não bloqueia o resto se Chart.js não carregar
     if (typeof Chart !== 'undefined') {
@@ -72,6 +100,9 @@ window.addEventListener('DOMContentLoaded', () => {
     sharingController.init();
     openFinanceController.init();
     cardController.init();
+    savingsController.init();
+    loanController.init();
+    analyticsController.init();
 
     // Botões do modal de perfil
     const saveProfileBtn = document.querySelector('[onclick="saveProfile()"]');

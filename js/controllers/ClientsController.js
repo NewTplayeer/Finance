@@ -1,3 +1,7 @@
+/**
+ * ClientsController — gere o CRUD de clientes e fornecedores.
+ * Faz consulta automática de CNPJ via CnpjService e valida CPF/CNPJ antes de guardar.
+ */
 import { ClientModel } from '../models/ClientModel.js';
 import { ClientsView } from '../views/ClientsView.js';
 import { ModalView } from '../views/ModalView.js';
@@ -6,6 +10,7 @@ import { CnpjService } from '../services/CnpjService.js';
 import { state } from '../state.js';
 
 export class ClientsController {
+    /** Inicializa todos os event listeners da secção de clientes */
     init() {
         this._bindForm();
         this._bindEditModal();
@@ -13,6 +18,7 @@ export class ClientsController {
         this._bindCnpjLookup();
     }
 
+    /** Inicia a sincronização em tempo real com o Firestore */
     startSync() {
         const uid = state.currentUser?.uid;
         if (!uid) return;
@@ -25,18 +31,24 @@ export class ClientsController {
         });
     }
 
+    /** Para a sincronização activa */
     stopSync() {
         if (state.unsubscribeClients) { state.unsubscribeClients(); state.unsubscribeClients = null; }
     }
 
+    /** Re-renderiza a tabela de clientes aplicando o filtro de pesquisa actual */
     renderClients() {
         const search = document.getElementById('clients-search')?.value?.toLowerCase().trim() || '';
         ClientsView.render(state.clients, search, {
-            onEdit: (id) => this.openEditModal(id),
+            onEdit:   (id) => this.openEditModal(id),
             onDelete: (id) => this.confirmDelete(id)
         });
     }
 
+    /**
+     * Abre o modal de edição pré-preenchido com os dados do cliente.
+     * @param {string} id - ID do cliente a editar
+     */
     openEditModal(id) {
         const client = state.clients.find(c => c.id === id);
         if (!client) return;
@@ -44,14 +56,15 @@ export class ClientsController {
         ClientsView.openEditModal(client);
     }
 
+    /** Lê os campos do modal de edição, valida e guarda as alterações no Firestore */
     async saveEdit() {
         if (!state.editingClientId || !state.currentUser) return;
 
-        const name = document.getElementById('edit-client-name')?.value?.trim();
+        const name   = document.getElementById('edit-client-name')?.value?.trim();
         const rawDoc = document.getElementById('edit-client-doc')?.value?.trim();
-        const type = document.getElementById('edit-client-type')?.value;
-        const email = document.getElementById('edit-client-email')?.value?.trim();
-        const phone = document.getElementById('edit-client-phone')?.value?.trim();
+        const type   = document.getElementById('edit-client-type')?.value;
+        const email  = document.getElementById('edit-client-email')?.value?.trim();
+        const phone  = document.getElementById('edit-client-phone')?.value?.trim();
 
         if (!name || !rawDoc) return ModalView.showToast("Nome e documento são obrigatórios.", 'error');
 
@@ -69,16 +82,24 @@ export class ClientsController {
         state.editingClientId = null;
     }
 
+    /**
+     * Abre confirmação antes de apagar um cliente.
+     * @param {string} id
+     */
     confirmDelete(id) {
         const client = state.clients.find(c => c.id === id);
         ModalView.openConfirmModal({
-            title: "Eliminar Cliente",
-            message: `Tens a certeza que desejas eliminar "${client?.name || 'este cliente'}"? Esta ação é irreversível.`,
+            title:        "Eliminar Cliente",
+            message:      `Tens a certeza que desejas eliminar "${client?.name || 'este cliente'}"? Esta ação é irreversível.`,
             confirmLabel: "Sim, eliminar",
-            onConfirm: () => this._delete(id)
+            onConfirm:    () => this._delete(id)
         });
     }
 
+    /**
+     * Apaga um cliente do Firestore.
+     * @param {string} id
+     */
     async _delete(id) {
         const uid = state.currentUser?.uid;
         if (uid) {
@@ -87,6 +108,7 @@ export class ClientsController {
         }
     }
 
+    /** Regista o submit do formulário de novo cliente com validação de documento */
     _bindForm() {
         const form = document.getElementById('client-form');
         if (!form) return;
@@ -94,12 +116,12 @@ export class ClientsController {
             e.preventDefault();
             if (!state.currentUser) return;
 
-            const name = document.getElementById('client-name')?.value?.trim();
+            const name   = document.getElementById('client-name')?.value?.trim();
             const rawDoc = document.getElementById('client-doc')?.value?.trim();
-            const type = document.getElementById('client-type')?.value;
-            const email = document.getElementById('client-email')?.value?.trim();
-            const phone = document.getElementById('client-phone')?.value?.trim();
-            const notes = document.getElementById('client-notes')?.value?.trim();
+            const type   = document.getElementById('client-type')?.value;
+            const email  = document.getElementById('client-email')?.value?.trim();
+            const phone  = document.getElementById('client-phone')?.value?.trim();
+            const notes  = document.getElementById('client-notes')?.value?.trim();
 
             if (!name || !rawDoc) return ModalView.showToast("Preenche todos os campos obrigatórios.", 'error');
 
@@ -120,6 +142,7 @@ export class ClientsController {
         };
     }
 
+    /** Remove onclick inline dos botões do modal de edição e regista listeners limpos */
     _bindEditModal() {
         const saveBtn = document.querySelector('[onclick="saveEditClient()"]');
         if (saveBtn) {
@@ -132,12 +155,16 @@ export class ClientsController {
         }
     }
 
+    /** Regista o listener do campo de pesquisa para filtrar a lista em tempo real */
     _bindSearch() {
         const searchEl = document.getElementById('clients-search');
         if (searchEl) searchEl.oninput = () => this.renderClients();
     }
 
-    // Auto-preenche campos ao detectar CNPJ válido
+    /**
+     * Monitoriza o campo de documento; quando detecta um CNPJ de 14 dígitos, consulta
+     * a API ReceitaWS e preenche automaticamente nome, telefone, e-mail e tipo.
+     */
     _bindCnpjLookup() {
         const docInput = document.getElementById('client-doc');
         if (!docInput) return;
@@ -156,12 +183,12 @@ export class ClientsController {
                 if (indicator) indicator.classList.add('hidden');
 
                 if (result) {
-                    const nameEl = document.getElementById('client-name');
+                    const nameEl  = document.getElementById('client-name');
                     const phoneEl = document.getElementById('client-phone');
                     const emailEl = document.getElementById('client-email');
-                    const typeEl = document.getElementById('client-type');
+                    const typeEl  = document.getElementById('client-type');
 
-                    if (nameEl && !nameEl.value) nameEl.value = result.name;
+                    if (nameEl  && !nameEl.value)  nameEl.value  = result.name;
                     if (phoneEl && !phoneEl.value) phoneEl.value = result.phone;
                     if (emailEl && !emailEl.value) emailEl.value = result.email;
                     if (typeEl) typeEl.value = result.type;

@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* ===== BASE ===== */
 body {
     font-family: 'Inter', sans-serif;
     background-color: #f8fafc;
@@ -7,31 +8,9 @@ body {
     transition: background-color 0.3s, color 0.3s;
 }
 
+/* ===== SOMBRAS E BADGES ===== */
 .card-shadow {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-
-.income-row {
-    background-color: #ecfdf5;
-    border-left: 4px solid #10b981;
-}
-
-.paid-row {
-    background-color: #f1f5f9;
-    opacity: 0.7;
-}
-
-.modal-overlay {
-    background-color: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(8px);
-}
-
-#auth-screen {
-    background: radial-gradient(circle at top right, #4f46e5, #1e293b);
-}
-
-.lock-screen-gradient {
-    background: radial-gradient(circle at bottom left, #1e293b, #0f172a);
 }
 
 .bank-badge {
@@ -45,8 +24,134 @@ body {
     text-transform: uppercase;
 }
 
+/* ===== LINHAS DA TABELA ===== */
+.income-row {
+    background-color: #ecfdf5;
+    border-left: 4px solid #10b981;
+}
+
+.paid-row {
+    background-color: #f1f5f9;
+    opacity: 0.7;
+}
+
+/* ===== MODAIS ===== */
+.modal-overlay {
+    background-color: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+}
+
+/* ===== ECRÃS DE AUTENTICAÇÃO / BLOQUEIO ===== */
+#auth-screen {
+    background: radial-gradient(circle at top right, #4f46e5, #1e293b);
+}
+
+.lock-screen-gradient {
+    background: radial-gradient(circle at bottom left, #1e293b, #0f172a);
+}
+
+/* ===== CARD DE SALDO PREVISTO ===== */
 .final-balance-card {
     background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+}
+
+/* ===== MOBILE-FIRST ===== */
+
+/* Navbar: em mobile oculta itens menos críticos e usa overflow horizontal */
+@media (max-width: 639px) {
+    /* Botões de modo pessoal/partilhado ficam mais compactos */
+    #btn-mode-personal,
+    #btn-mode-shared {
+        font-size: 9px;
+        padding: 4px 8px;
+    }
+
+    /* Status Ollama: oculta em mobile para poupar espaço */
+    #sync-status {
+        display: none;
+    }
+
+    /* Navbar scroll horizontal se necessário */
+    nav .flex.items-center.gap-3.flex-wrap {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 2px;
+    }
+    nav .flex.items-center.gap-3.flex-wrap::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Botão Open Finance: só ícone em mobile */
+    #btn-open-finance span:last-child {
+        display: none;
+    }
+    #btn-open-finance {
+        padding: 6px 10px;
+    }
+
+    /* Cards de métricas: 2 colunas em mobile */
+    .grid.grid-cols-2.sm\\:grid-cols-3.lg\\:grid-cols-5 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Formulário manual: sempre 1 coluna em mobile */
+    #finance-form {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Modais: ocupam toda a largura e altura em mobile */
+    .modal-overlay > div {
+        border-radius: 1.5rem;
+        max-height: 95vh;
+    }
+
+    /* Tabela: remove padding excessivo */
+    table {
+        font-size: 13px;
+    }
+
+    /* Resumo mês: botões empilham */
+    .flex.flex-wrap.gap-2 button {
+        font-size: 9px;
+        padding: 6px 10px;
+    }
+}
+
+/* Tablets (640–1023px): ajustes intermédios */
+@media (min-width: 640px) and (max-width: 1023px) {
+    /* Gráficos com menos altura para caber no layout de 2 colunas */
+    .h-56 {
+        height: 180px;
+    }
+}
+
+/* ===== ANIMAÇÕES ===== */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Cards de métricas entram com animação */
+.card-shadow {
+    animation: fadeInUp 0.35s ease both;
+}
+
+/* ===== SCROLLBAR PERSONALIZADA ===== */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
 
 /* ===== DARK MODE ===== */
@@ -129,4 +234,119 @@ html.dark tr:hover td {
 
 html.dark .hover\:bg-slate-50\/50:hover {
     background-color: #162032 !important;
+}
+
+/* Dark mode — cofrinhos e empréstimos */
+html.dark .bg-slate-50.rounded-2xl {
+    background-color: #1e293b !important;
+}
+
+html.dark .bg-amber-50 {
+    background-color: #1c1008 !important;
+}
+
+html.dark .bg-emerald-50\/50 {
+    background-color: #052e16 !important;
+}
+
+html.dark .bg-rose-50 {
+    background-color: #1f0a0a !important;
+}
+
+/* Dark mode — espaço partilhado (violeta) */
+html.dark .bg-violet-50 {
+    background-color: #1e1b3a !important;
+}
+
+html.dark .border-violet-100,
+html.dark .border-violet-200 {
+    border-color: #4c1d95 !important;
+}
+
+html.dark .text-violet-700 {
+    color: #a78bfa !important;
+}
+
+html.dark .bg-violet-100 {
+    background-color: #2e1065 !important;
+}
+
+/* Dark mode — barras de metas */
+html.dark .bg-slate-100.rounded-full {
+    background-color: #334155 !important;
+}
+
+/* Dark mode — budget-bars container */
+html.dark #budget-bars .bg-slate-100 {
+    background-color: #334155 !important;
+}
+
+/* Dark mode — sidebar inputs */
+html.dark #budget-goals-list input[type="number"] {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+/* Dark mode — new-cat-row */
+html.dark .bg-indigo-50.border-2 {
+    background-color: #1e1b4b !important;
+    border-color: #4338ca !important;
+}
+
+/* Dark mode — analytics stat cards */
+html.dark .bg-emerald-50 {
+    background-color: #052e16 !important;
+}
+
+html.dark .border-emerald-100 {
+    border-color: #064e1a !important;
+}
+
+html.dark .bg-emerald-100 {
+    background-color: #064e1a !important;
+}
+
+html.dark .bg-indigo-100 {
+    background-color: #1e1b4b !important;
+}
+
+html.dark .border-indigo-100 {
+    border-color: #312e81 !important;
+}
+
+html.dark .bg-rose-100 {
+    background-color: #2d0a0a !important;
+}
+
+html.dark .border-rose-100 {
+    border-color: #450a0a !important;
+}
+
+html.dark .bg-amber-100 {
+    background-color: #2d1a00 !important;
+}
+
+html.dark .border-amber-100 {
+    border-color: #451a00 !important;
+}
+
+/* Dark mode — client type badges */
+html.dark .bg-blue-50 {
+    background-color: #0c1a2e !important;
+}
+
+html.dark .bg-purple-50 {
+    background-color: #1a0d2e !important;
+}
+
+/* Analytics section: 2 colunas em mobile para o grid de 5 stats */
+@media (max-width: 639px) {
+    #analytics-global-stats .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #analytics-section {
+        padding: 0 !important;
+    }
 }

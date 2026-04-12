@@ -1,3 +1,4 @@
+/** Configuração do projecto Firebase */
 export const firebaseConfig = {
     apiKey: "AIzaSyBI_D6tIFU5KzjY0WlgEvNPi3wFLqrvu0c",
     authDomain: "finance-41b6c.firebaseapp.com",
@@ -17,10 +18,15 @@ export const APP_ID = 'bruno-financas-v3-auth';
 
 export const currentMonthKey = new Date().toISOString().slice(0, 7);
 
-// Categorias padrão da aplicação (usadas no select e no AIService)
+/** Categorias padrão da aplicação (usadas nos selects e no AIService) */
 export const DEFAULT_CATEGORIES = [
     'Receita', 'Alimentação', 'Transporte', 'Saúde',
     'Lazer', 'Casa', 'Educação', 'Vestuário', 'Serviços', 'Outros'
+];
+
+/** Formas de pagamento padrão (usadas nos selects de método) */
+export const DEFAULT_METHODS = [
+    'Dinheiro/Pix', 'Cartão Débito', 'Cartão', 'Boleto'
 ];
 
 // Open Finance (Pluggy.ai) — regista em https://pluggy.ai e adiciona as tuas credenciais
