@@ -34,7 +34,7 @@ export const DEFAULT_METHODS = [
  * Adiciona o teu e-mail aqui para aceder ao painel Admin.
  */
 export const ADMIN_EMAILS = [
-    'brunonunes14@gmail.com'
+    'brunotavaresdefreitas@gmail.com'
 ];
 
 // Open Finance (Pluggy.ai) — regista em https://pluggy.ai e adiciona as tuas credenciais
