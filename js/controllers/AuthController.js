@@ -4,6 +4,7 @@
  */
 import { auth } from '../firebase.js';
 import { DEFAULT_CATEGORIES, DEFAULT_METHODS } from '../config.js';
+import { TransactionModel } from '../models/TransactionModel.js';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
@@ -367,10 +368,11 @@ export class AuthController {
             const prefs = await UserModel.getPrefs(uid);
             this._profilePassword  = prefs?.appPassword      || '';
             this._profileName      = prefs?.userName         || '';
-            state.sharedSpaceId    = prefs?.sharedSpaceId    || null;
-            state.budgets          = prefs?.budgets          || {};
-            state.customCategories = prefs?.customCategories || [];
-            state.customMethods    = prefs?.customMethods    || [];
+            state.sharedSpaceId      = prefs?.sharedSpaceId      || null;
+            state.budgets            = prefs?.budgets            || {};
+            state.customCategories   = prefs?.customCategories   || [];
+            state.customMethods      = prefs?.customMethods      || [];
+            state.customMethodsOrder = prefs?.customMethodsOrder || [];
             state.userName         = this._profileName;
 
             this._updateAvatarUI(this._profileName);
@@ -478,11 +480,12 @@ export class AuthController {
         });
 
         await UserModel.savePrefs(state.currentUser.uid, {
-            userName:         name,
-            appPassword:      pin,
-            budgets:          state.budgets,
-            customCategories: state.customCategories,
-            customMethods:    state.customMethods
+            userName:          name,
+            appPassword:       pin,
+            budgets:           state.budgets,
+            customCategories:  state.customCategories,
+            customMethods:     state.customMethods,
+            customMethodsOrder: state.customMethodsOrder
         });
 
         this._profilePassword = pin;
@@ -568,33 +571,243 @@ export class AuthController {
         }
     }
 
-    /** Renderiza a lista de métodos de pagamento personalizados no modal de perfil */
+    /**
+     * Renderiza a lista completa de métodos de pagamento (padrão + personalizados).
+     * Com ordenação (↑↓), edição inline, edição em massa e exclusão com validação.
+     */
     _renderMethodsList() {
         const container = document.getElementById('methods-list');
         if (!container) return;
 
-        if (!state.customMethods.length) {
-            container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-2">Sem métodos personalizados.</p>`;
+        // Ordem preferida: state.customMethodsOrder define posições de TODOS os métodos
+        const allMethods = [...DEFAULT_METHODS, ...state.customMethods];
+        const order      = state.customMethodsOrder || [];
+
+        // Aplica ordem preferida
+        const ordered = [...allMethods].sort((a, b) => {
+            const ia = order.indexOf(a);
+            const ib = order.indexOf(b);
+            if (ia === -1 && ib === -1) return allMethods.indexOf(a) - allMethods.indexOf(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+
+        if (!ordered.length) {
+            container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-2">Sem métodos.</p>`;
             return;
         }
 
-        container.innerHTML = state.customMethods.map((m, i) => `
-            <div class="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 mb-2">
-                <span class="text-sm font-medium text-slate-700">${m}</span>
-                <button data-method-delete="${i}" class="text-slate-300 hover:text-rose-500 transition-colors font-bold px-1">✕</button>
-            </div>
-        `).join('');
+        container.innerHTML = ordered.map((m, i) => {
+            const isDefault = DEFAULT_METHODS.includes(m);
+            return `
+            <div class="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2.5 mb-2 group" data-method-name="${this._escAttr(m)}">
+                <div class="flex flex-col gap-0.5 shrink-0">
+                    <button data-method-up="${i}" title="Subir" class="text-slate-300 hover:text-slate-600 transition leading-none text-xs ${i === 0 ? 'invisible' : ''}">▲</button>
+                    <button data-method-down="${i}" title="Descer" class="text-slate-300 hover:text-slate-600 transition leading-none text-xs ${i === ordered.length - 1 ? 'invisible' : ''}">▼</button>
+                </div>
+                <span class="method-label flex-1 text-sm font-medium text-slate-700 truncate">${m}</span>
+                <input type="text" class="method-edit-input hidden flex-1 p-1.5 text-sm bg-white border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-300" value="${this._escAttr(m)}">
+                ${isDefault
+                    ? `<span class="text-[9px] font-bold text-slate-400 uppercase border border-slate-200 rounded px-1.5 py-0.5 shrink-0">Padrão</span>`
+                    : `
+                    <button class="method-edit-btn shrink-0 text-slate-300 hover:text-indigo-500 transition text-sm px-1" title="Editar">✎</button>
+                    <button class="method-save-btn hidden shrink-0 px-2 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition">OK</button>
+                    <button data-method-delete="${this._escAttr(m)}" class="shrink-0 text-slate-300 hover:text-rose-500 transition font-bold text-sm px-1" title="Excluir">✕</button>`
+                }
+            </div>`;
+        }).join('');
 
-        container.querySelectorAll('[data-method-delete]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                state.customMethods.splice(parseInt(btn.dataset.methodDelete, 10), 1);
+        /* ─ Reordenar ─ */
+        const reorder = (fromIdx, toIdx) => {
+            if (toIdx < 0 || toIdx >= ordered.length) return;
+            const newOrder = [...ordered];
+            [newOrder[fromIdx], newOrder[toIdx]] = [newOrder[toIdx], newOrder[fromIdx]];
+            state.customMethodsOrder = newOrder;
+            this._saveMethodsOrder();
+            this._renderMethodsList();
+        };
+
+        container.querySelectorAll('[data-method-up]').forEach(btn => {
+            btn.addEventListener('click', () => reorder(parseInt(btn.dataset.methodUp), parseInt(btn.dataset.methodUp) - 1));
+        });
+        container.querySelectorAll('[data-method-down]').forEach(btn => {
+            btn.addEventListener('click', () => reorder(parseInt(btn.dataset.methodDown), parseInt(btn.dataset.methodDown) + 1));
+        });
+
+        /* ─ Edição inline ─ */
+        container.querySelectorAll('[data-method-name]').forEach(row => {
+            const oldName   = row.dataset.methodName;
+            if (DEFAULT_METHODS.includes(oldName)) return; // padrões não são editáveis
+            const label     = row.querySelector('.method-label');
+            const input     = row.querySelector('.method-edit-input');
+            const editBtn   = row.querySelector('.method-edit-btn');
+            const saveBtn   = row.querySelector('.method-save-btn');
+            if (!editBtn || !saveBtn) return;
+
+            editBtn.addEventListener('click', () => {
+                label.classList.add('hidden');
+                editBtn.classList.add('hidden');
+                input.classList.remove('hidden');
+                saveBtn.classList.remove('hidden');
+                input.focus(); input.select();
+            });
+
+            const doSave = async () => {
+                const newName = input.value.trim();
+                if (!newName) { ModalView.showToast('O nome não pode estar vazio.', 'error'); return; }
+                if (newName.toLowerCase() === oldName.toLowerCase()) {
+                    // Sem mudança
+                    label.classList.remove('hidden');
+                    editBtn.classList.remove('hidden');
+                    input.classList.add('hidden');
+                    saveBtn.classList.add('hidden');
+                    return;
+                }
+                const all = [...DEFAULT_METHODS, ...state.customMethods];
+                if (all.some(m => m.toLowerCase() === newName.toLowerCase() && m !== oldName)) {
+                    ModalView.showToast('Já existe um método com esse nome.', 'error'); return;
+                }
+                // Conta transações afectadas
+                const affected = state.transactions.filter(t => t.method === oldName).length;
+                const proceed  = await this._confirmMethodRename(oldName, newName, affected);
+                if (!proceed) return;
+
+                // Actualiza estado
+                state.customMethods = state.customMethods.map(m => m === oldName ? newName : m);
+                if (state.customMethodsOrder) {
+                    state.customMethodsOrder = state.customMethodsOrder.map(m => m === oldName ? newName : m);
+                }
+                // Actualiza transações históricas (batch)
+                if (affected > 0 && proceed === 'all') {
+                    await this._bulkUpdateMethod(oldName, newName);
+                }
+                const uid = state.currentUser?.uid;
+                if (uid) await UserModel.savePrefs(uid, {
+                    customMethods:      state.customMethods,
+                    customMethodsOrder: state.customMethodsOrder
+                });
                 this._renderMethodsList();
+                ModalView.showToast(`Método renomeado para "${newName}".`, 'success');
+            };
+
+            saveBtn.addEventListener('click', doSave);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
+        });
+
+        /* ─ Exclusão com validação ─ */
+        container.querySelectorAll('[data-method-delete]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const name     = btn.dataset.methodDelete;
+                const affected = state.transactions.filter(t => t.method === name).length;
+
+                if (affected > 0) {
+                    // Migração obrigatória
+                    await this._confirmMethodMigration(name, affected);
+                } else {
+                    ModalView.openConfirmModal({
+                        title:        'Excluir Método',
+                        message:      `Excluir o método <strong>"${name}"</strong>? Nenhuma transação está vinculada.`,
+                        confirmLabel: 'Sim, excluir',
+                        onConfirm:    async () => {
+                            state.customMethods      = state.customMethods.filter(m => m !== name);
+                            state.customMethodsOrder = (state.customMethodsOrder || []).filter(m => m !== name);
+                            const uid = state.currentUser?.uid;
+                            if (uid) await UserModel.savePrefs(uid, {
+                                customMethods:      state.customMethods,
+                                customMethodsOrder: state.customMethodsOrder
+                            });
+                            this._renderMethodsList();
+                            ModalView.showToast(`Método "${name}" removido.`, 'success');
+                        }
+                    });
+                }
             });
         });
     }
 
     /**
-     * Adiciona um novo método de pagamento personalizado a partir do campo de texto.
+     * Mostra confirm modal para renomeação, retorna 'all' | 'new' | false.
+     */
+    async _confirmMethodRename(oldName, newName, affected) {
+        return new Promise(resolve => {
+            ModalView.openConfirmModal({
+                title:   'Renomear Método',
+                message: `<strong>"${oldName}"</strong> → <strong>"${newName}"</strong><br>
+                    <span class="text-xs text-slate-500">${affected} transação(ões) vinculada(s).</span><br><br>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="method-rename-all" checked class="w-4 h-4 accent-indigo-600">
+                        <span class="text-sm text-slate-700">Actualizar também os registos históricos</span>
+                    </label>`,
+                confirmLabel: 'Confirmar',
+                onConfirm: () => resolve(document.getElementById('method-rename-all')?.checked ? 'all' : 'new'),
+                onCancel:  () => resolve(false)
+            });
+        });
+    }
+
+    /**
+     * Mostra dialog de migração quando há transações vinculadas ao método a excluir.
+     */
+    async _confirmMethodMigration(deleteName, affected) {
+        const otherMethods = [...DEFAULT_METHODS, ...state.customMethods]
+            .filter(m => m !== deleteName);
+        const opts = otherMethods.map(m => `<option value="${this._escAttr(m)}">${m}</option>`).join('');
+
+        return new Promise(resolve => {
+            ModalView.openConfirmModal({
+                title:   'Migrar Registos',
+                message: `O método <strong>"${deleteName}"</strong> tem <strong>${affected} registo(s)</strong> vinculados.<br>
+                    Migra-os para outro método antes de excluir:
+                    <select id="method-migrate-select" class="w-full mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                        ${opts}
+                    </select>`,
+                confirmLabel: 'Migrar e Excluir',
+                onConfirm: async () => {
+                    const targetMethod = document.getElementById('method-migrate-select')?.value;
+                    if (!targetMethod) { ModalView.showToast('Selecciona o método de destino.', 'error'); return; }
+                    await this._bulkUpdateMethod(deleteName, targetMethod);
+                    state.customMethods      = state.customMethods.filter(m => m !== deleteName);
+                    state.customMethodsOrder = (state.customMethodsOrder || []).filter(m => m !== deleteName);
+                    const uid = state.currentUser?.uid;
+                    if (uid) await UserModel.savePrefs(uid, {
+                        customMethods:      state.customMethods,
+                        customMethodsOrder: state.customMethodsOrder
+                    });
+                    this._renderMethodsList();
+                    ModalView.showToast(`Registos migrados e "${deleteName}" removido.`, 'success');
+                    resolve(true);
+                },
+                onCancel: () => resolve(false)
+            });
+        });
+    }
+
+    /** Actualiza em batch todos os registos que usam oldMethod para newMethod */
+    async _bulkUpdateMethod(oldMethod, newMethod) {
+        const uid      = state.currentUser?.uid;
+        if (!uid) return;
+        const spaceId  = (state.viewMode === 'shared' && state.sharedSpaceId) ? state.sharedSpaceId : null;
+        const toUpdate = state.transactions.filter(t => t.method === oldMethod);
+        for (const t of toUpdate) {
+            try {
+                await TransactionModel.update(uid, t.id, {
+                    desc: t.desc, amount: t.amount, category: t.category,
+                    method: newMethod, bank: t.bank || '', place: t.place || ''
+                }, spaceId);
+            } catch (_) {}
+        }
+    }
+
+    /** Guarda a ordem preferida de métodos */
+    async _saveMethodsOrder() {
+        const uid = state.currentUser?.uid;
+        if (!uid) return;
+        try { await UserModel.savePrefs(uid, { customMethodsOrder: state.customMethodsOrder }); } catch (_) {}
+    }
+
+    /**
+     * Adiciona um novo método de pagamento personalizado.
      * Chamada pelo botão "+ Método" ou tecla Enter.
      */
     _addMethod() {
@@ -610,6 +823,10 @@ export class AuthController {
         if (input) input.value = '';
         this._renderMethodsList();
         ModalView.showToast(`Método "${name}" adicionado!`, 'success');
+    }
+
+    _escAttr(str) {
+        return (str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
     /** Termina a sessão e recarrega a página */

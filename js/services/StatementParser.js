@@ -65,7 +65,7 @@ function parseRow(line, delim) {
 
 /** Encontra o índice de coluna cujo header contenha alguma das keywords */
 function findCol(headers, keywords) {
-    const norm = s => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+    const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     for (let i = 0; i < headers.length; i++) {
         const h = norm(headers[i]);
         if (keywords.some(k => h.includes(norm(k)))) return i;
@@ -137,7 +137,7 @@ const CAT_RULES = [
 ];
 
 function guessCategory(desc) {
-    const d = (desc || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+    const d = (desc || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     for (const [re, cat] of CAT_RULES) {
         if (re.test(d)) return cat;
     }

@@ -184,6 +184,20 @@ export class NavigationController {
      */
     _setMode(mode) {
         state.viewMode = mode;
+        this.syncModeButtons(mode);
+        try {
+            if (this.onModeChange) this.onModeChange(mode);
+        } catch (e) {
+            console.error('[Nav] onModeChange error:', e);
+        }
+    }
+
+    /**
+     * Actualiza apenas o estilo visual dos botões Pessoal/Partilhado.
+     * Pode ser chamado externamente (ex: SharingController) sem disparar onModeChange.
+     * @param {'personal'|'shared'} mode
+     */
+    syncModeButtons(mode) {
         const btnPersonal = document.getElementById('btn-mode-personal');
         const btnShared   = document.getElementById('btn-mode-shared');
         const active   = ['bg-indigo-600', 'text-white'];
@@ -200,8 +214,6 @@ export class NavigationController {
             btnPersonal?.classList.remove(...active);
             btnPersonal?.classList.add(...inactive);
         }
-
-        if (this.onModeChange) this.onModeChange(mode);
     }
 
     /**

@@ -33,6 +33,8 @@ export const state = {
     customCategories: [],
     /** Formas de pagamento criadas pelo utilizador (além das padrão) */
     customMethods: [],
+    /** Ordem preferida para todos os métodos (padrão + personalizados) */
+    customMethodsOrder: [],
     /** Cartões bancários com datas de fatura: [{ bankName, closingDay, dueDay }] */
     cards: [],
     /** Modo escuro activo */
@@ -41,4 +43,6 @@ export const state = {
     savings: [],
     /** Lista de empréstimos em memória (sincronizada por LoanController) */
     loans: [],
+    /** Lista de assinaturas recorrentes (sincronizada por SubscriptionController) */
+    subscriptions: [],
 };
