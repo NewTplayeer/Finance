@@ -3,13 +3,14 @@
  * É o controller central da aplicação.
  */
 import { TransactionModel } from '../models/TransactionModel.js';
-import { AIService } from '../services/AIService.js';
-import { StatementParser } from '../services/StatementParser.js';
-import { DashboardView } from '../views/DashboardView.js';
-import { ModalView } from '../views/ModalView.js';
-import { UserModel } from '../models/UserModel.js';
-import { ReportService } from '../services/ReportService.js';
-import { state } from '../state.js';
+import { AIService }         from '../services/AIService.js';
+import { StatementParser }   from '../services/StatementParser.js';
+import { DashboardView }     from '../views/DashboardView.js';
+import { ModalView }         from '../views/ModalView.js';
+import { UserModel }         from '../models/UserModel.js';
+import { ReportService }     from '../services/ReportService.js';
+import { DateUtils }         from '../utils/DateUtils.js';
+import { state }             from '../state.js';
 import { currentMonthKey, DEFAULT_CATEGORIES, DEFAULT_METHODS } from '../config.js';
 
 export class TransactionController {
@@ -23,6 +24,8 @@ export class TransactionController {
     /** Inicializa todos os event listeners do controller */
     init() {
         this._currentSort = 'newest';
+        this._page        = 1;
+        this._pageSize    = 20;
         this._bindManualForm();
         this._bindAIInput();
         this._bindImportModal();
@@ -32,10 +35,12 @@ export class TransactionController {
         this._bindCategoriesManager();
         this._bindSortButtons();
         this._bindPdfReport();
+        this._bindAutocomplete();
+        this._bindPagination();
         this.refreshMethodSelectors();
         // Pré-preenche campo de data com hoje
         const dateEl = document.getElementById('transaction-date');
-        if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
+        if (dateEl) dateEl.value = DateUtils.today();
     }
 
     /**
@@ -43,7 +48,17 @@ export class TransactionController {
      * Chama-se após login e sempre que um método é adicionado/removido.
      */
     refreshMethodSelectors() {
-        const allMethods = [...DEFAULT_METHODS, ...state.customMethods];
+        const base   = [...DEFAULT_METHODS, ...state.customMethods];
+        const order  = state.customMethodsOrder || [];
+        // Aplica ordem preferida
+        const allMethods = [...base].sort((a, b) => {
+            const ia = order.indexOf(a), ib = order.indexOf(b);
+            if (ia === -1 && ib === -1) return base.indexOf(a) - base.indexOf(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+
         ['method', 'edit-method'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
@@ -125,10 +140,20 @@ export class TransactionController {
 
         if (state.unsubscribeTrans) state.unsubscribeTrans();
 
-        state.unsubscribeTrans = TransactionModel.subscribe(uid, (data) => {
-            state.transactions = data;
-            this.refreshDashboard();
-        }, this._activeSpaceId());
+        state.unsubscribeTrans = TransactionModel.subscribe(
+            uid,
+            (data) => {
+                state.transactions = data;
+                this.refreshDashboard();
+            },
+            this._activeSpaceId(),
+            (err) => {
+                ModalView.showToast(
+                    'Erro ao carregar transações' + (err?.code ? ` (${err.code})` : '') + '. Verifica as permissões do espaço partilhado.',
+                    'error'
+                );
+            }
+        );
     }
 
     /** Para a sincronização activa */
@@ -160,11 +185,29 @@ export class TransactionController {
             finalBalance: income - instantExit - pending
         });
 
-        DashboardView.renderTransactionList(filtered, {
+        // ── Paginação ──────────────────────────────────────────────────────
+        // Ordena primeiro para paginar correctamente
+        const sorted = [...filtered];
+        const sort   = this._currentSort || 'newest';
+        const getDate = (t) => t.date || (t.createdAt ? t.createdAt.slice(0, 10) : null) || (t.monthKey ? t.monthKey + '-01' : '1970-01-01');
+        if      (sort === 'oldest')  sorted.sort((a, b) => getDate(a).localeCompare(getDate(b)));
+        else if (sort === 'highest') sorted.sort((a, b) => b.amount - a.amount);
+        else if (sort === 'lowest')  sorted.sort((a, b) => a.amount - b.amount);
+        else                         sorted.sort((a, b) => getDate(b).localeCompare(getDate(a)));
+
+        const totalItems = sorted.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / this._pageSize));
+        if (this._page > totalPages) this._page = totalPages;
+        const pageItems = sorted.slice((this._page - 1) * this._pageSize, this._page * this._pageSize);
+
+        DashboardView.renderTransactionList(pageItems, {
             onTogglePaid: (id) => this.togglePaid(id),
             onDelete:     (id) => this.confirmDelete(id),
             onEdit:       (id) => this.editTransaction(id)
-        }, this._currentSort || 'newest');
+        }, 'presorted'); // já ordenado acima — DashboardView mantém a ordem recebida
+
+        // Actualiza barra de paginação
+        this._renderPaginationBar(totalItems, totalPages);
 
         const monthFilter = document.getElementById('month-filter');
         if (monthFilter) {
@@ -177,8 +220,90 @@ export class TransactionController {
         DashboardView.updatePieChart(state.pieChart, filtered);
         DashboardView.renderBudgetBars(filtered, state.budgets);
 
+        // Saldo rolado do mês anterior
+        this._renderRolledBalance(monthKey);
+
         // Actualiza selector de clientes no formulário
         this._refreshClientSelector();
+    }
+
+    /** Renderiza o banner do saldo do mês anterior */
+    _renderRolledBalance(currentMonthKey) {
+        const el = document.getElementById('rolled-balance-banner');
+        if (!el) return;
+
+        // Calcula mês anterior
+        const [cy, cm] = currentMonthKey.split('-').map(Number);
+        const prevDate  = new Date(cy, cm - 2, 1);
+        const prevKey   = prevDate.toISOString().slice(0, 7);
+
+        const prevTrans = state.transactions.filter(t => t.monthKey === prevKey);
+        if (!prevTrans.length) { el.classList.add('hidden'); return; }
+
+        const income   = prevTrans.filter(t => t.category === 'Receita').reduce((s, t) => s + t.amount, 0);
+        const expenses = prevTrans.filter(t => t.category !== 'Receita').reduce((s, t) => s + t.amount, 0);
+        const balance  = income - expenses;
+
+        if (Math.abs(balance) < 0.01) { el.classList.add('hidden'); return; }
+
+        const fmtCur = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const label  = DateUtils.monthKeyToLabel(prevKey);
+
+        el.classList.remove('hidden');
+        el.innerHTML = `
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Saldo ${label}</span>
+                    <span class="font-bold text-sm ${balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${fmtCur(balance)}</span>
+                </div>
+                ${balance > 0 ? `
+                <button id="btn-inject-balance"
+                    class="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-xl hover:bg-emerald-700 transition">
+                    Usar como Saldo Inicial
+                </button>` : ''}
+            </div>`;
+
+        document.getElementById('btn-inject-balance')?.addEventListener('click', async () => {
+            const uid = state.currentUser?.uid;
+            if (!uid) return;
+            const mk      = currentMonthKey;
+            const already = state.transactions.some(t => t.monthKey === mk && t.isRolledBalance);
+            if (already) { ModalView.showToast('Saldo inicial já injectado neste mês.', 'error'); return; }
+
+            await this.addTransaction({
+                desc:           `Saldo Inicial (${label})`,
+                amount:         balance,
+                category:       'Receita',
+                method:         'Dinheiro/Pix',
+                bank:           '',
+                dateKey:        mk,
+                date:           mk + '-01',
+                isRolledBalance: true
+            });
+            ModalView.showToast('Saldo inicial injectado!', 'success');
+        });
+    }
+
+    /** Renderiza os controles de paginação */
+    _renderPaginationBar(totalItems, totalPages) {
+        const bar = document.getElementById('pagination-bar');
+        if (!bar) return;
+
+        if (totalItems <= this._pageSize && this._pageSize !== 10) {
+            bar.classList.add('hidden');
+            return;
+        }
+        bar.classList.remove('hidden');
+
+        const info  = document.getElementById('pagination-info');
+        const prevs = bar.querySelectorAll('[data-page-prev]');
+        const nexts = bar.querySelectorAll('[data-page-next]');
+        const start = (this._page - 1) * this._pageSize + 1;
+        const end   = Math.min(this._page * this._pageSize, totalItems);
+
+        if (info) info.textContent = `${start}–${end} de ${totalItems}`;
+        prevs.forEach(b => b.disabled = this._page <= 1);
+        nexts.forEach(b => b.disabled = this._page >= totalPages);
     }
 
     /** Actualiza o select de clientes no formulário manual */
@@ -580,6 +705,7 @@ export class TransactionController {
         document.querySelectorAll('.sort-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this._currentSort = btn.dataset.sort;
+                this._page = 1;
                 syncStyles();
                 this.refreshDashboard();
             });
@@ -789,6 +915,79 @@ export class TransactionController {
                     }
                 });
             });
+        });
+    }
+
+    /**
+     * Autocomplete para o campo "Descrição" baseado no histórico de transações.
+     * Mostra dropdown com sugestões ao digitar (mínimo 2 caracteres).
+     */
+    _bindAutocomplete() {
+        const input    = document.getElementById('desc');
+        const dropdown = document.getElementById('desc-autocomplete');
+        if (!input || !dropdown) return;
+
+        const hide = () => dropdown.classList.add('hidden');
+
+        input.addEventListener('input', () => {
+            const val = input.value.trim().toLowerCase();
+            if (val.length < 2) { hide(); return; }
+
+            // Coleta descrições únicas do histórico completo, ordena por frequência
+            const freqMap = {};
+            state.transactions.forEach(t => {
+                if (!t.desc) return;
+                const key = t.desc.toLowerCase();
+                if (key.includes(val)) freqMap[t.desc] = (freqMap[t.desc] || 0) + 1;
+            });
+            const suggestions = Object.entries(freqMap)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8)
+                .map(([d]) => d);
+
+            if (!suggestions.length) { hide(); return; }
+
+            dropdown.innerHTML = suggestions.map(d =>
+                `<button type="button" data-ac="${this._esc(d)}"
+                    class="w-full text-left px-4 py-2.5 hover:bg-indigo-50 text-sm text-slate-700 truncate transition">${d}</button>`
+            ).join('');
+            dropdown.classList.remove('hidden');
+        });
+
+        dropdown.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-ac]');
+            if (btn) { input.value = btn.dataset.ac; hide(); input.focus(); }
+        });
+
+        // Fecha ao clicar fora
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !dropdown.contains(e.target)) hide();
+        }, true);
+
+        // Fecha com Escape
+        input.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+    }
+
+    /** Bind dos controles de paginação e selector de tamanho de página */
+    _bindPagination() {
+        const bar = document.getElementById('pagination-bar');
+        if (!bar) return;
+
+        bar.addEventListener('click', (e) => {
+            if (e.target.closest('[data-page-prev]') && this._page > 1) {
+                this._page--;
+                this.refreshDashboard();
+            }
+            if (e.target.closest('[data-page-next]')) {
+                this._page++;
+                this.refreshDashboard();
+            }
+        });
+
+        document.getElementById('page-size-select')?.addEventListener('change', (e) => {
+            this._pageSize = parseInt(e.target.value) || 20;
+            this._page     = 1;
+            this.refreshDashboard();
         });
     }
 

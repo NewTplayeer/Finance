@@ -62,9 +62,10 @@ export const DashboardView = {
             return;
         }
 
-        /* Ordenação */
+        /* Ordenação — 'presorted' mantém a ordem já aplicada pelo controller */
         const sorted = [...list];
-        if      (sortBy === 'oldest')  sorted.sort((a, b) => getTransDate(a).localeCompare(getTransDate(b)));
+        if      (sortBy === 'presorted') { /* já ordenado */ }
+        else if (sortBy === 'oldest')  sorted.sort((a, b) => getTransDate(a).localeCompare(getTransDate(b)));
         else if (sortBy === 'highest') sorted.sort((a, b) => b.amount - a.amount);
         else if (sortBy === 'lowest')  sorted.sort((a, b) => a.amount - b.amount);
         else /* newest */              sorted.sort((a, b) => getTransDate(b).localeCompare(getTransDate(a)));
@@ -296,8 +297,30 @@ export const DashboardView = {
     updateViewModeUI(mode) {
         const badge = document.getElementById('view-mode-badge');
         if (badge) {
-            badge.innerText   = mode === 'shared' ? '🤝 Partilhado' : '👤 Pessoal';
-            badge.className   = `text-[10px] font-bold px-3 py-1 rounded-full border ${mode === 'shared' ? 'bg-violet-50 text-violet-600 border-violet-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`;
+            badge.innerText = mode === 'shared' ? '🤝 Partilhado' : '👤 Pessoal';
+            badge.className = `text-[10px] font-bold px-3 py-1 rounded-full border ${mode === 'shared' ? 'bg-violet-50 text-violet-600 border-violet-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`;
         }
+
+        const membersBadge = document.getElementById('shared-members-badge');
+        if (!membersBadge) return;
+
+        if (mode !== 'shared') {
+            membersBadge.classList.add('hidden');
+            membersBadge.classList.remove('flex');
+            return;
+        }
+
+        // Carrega membros do espaço partilhado e mostra badge
+        import('../models/SharedSpaceModel.js').then(async ({ SharedSpaceModel }) => {
+            const { state } = await import('../state.js');
+            if (!state.sharedSpaceId) return;
+            const space = await SharedSpaceModel.get(state.sharedSpaceId).catch(() => null);
+            if (!space) return;
+            const names = Object.values(space.memberNames || {});
+            const label = names.map(n => n.split(' ')[0]).join(' & ');
+            membersBadge.innerHTML = `👥 ${names.length} · ${label}`;
+            membersBadge.classList.remove('hidden');
+            membersBadge.classList.add('flex');
+        }).catch(() => {});
     }
 };

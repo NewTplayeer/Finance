@@ -3,24 +3,36 @@
  * Instancia e liga todos os controllers; inicializa os gráficos após o DOM estar pronto.
  */
 import { state } from './state.js';
-import { DashboardView } from './views/DashboardView.js';
-import { AuthController } from './controllers/AuthController.js';
-import { TransactionController } from './controllers/TransactionController.js';
-import { ClientsController } from './controllers/ClientsController.js';
-import { NavigationController } from './controllers/NavigationController.js';
-import { SharingController } from './controllers/SharingController.js';
-import { OpenFinanceController } from './controllers/OpenFinanceController.js';
-import { CardController } from './controllers/CardController.js';
-import { SavingsController } from './controllers/SavingsController.js';
-import { LoanController } from './controllers/LoanController.js';
-import { AnalyticsController } from './controllers/AnalyticsController.js';
-import { AdminController } from './controllers/AdminController.js';
+import { DashboardView }          from './views/DashboardView.js';
+import { AuthController }         from './controllers/AuthController.js';
+import { TransactionController }  from './controllers/TransactionController.js';
+import { ClientsController }      from './controllers/ClientsController.js';
+import { NavigationController }   from './controllers/NavigationController.js';
+import { SharingController }      from './controllers/SharingController.js';
+import { OpenFinanceController }  from './controllers/OpenFinanceController.js';
+import { CardController }         from './controllers/CardController.js';
+import { SavingsController }      from './controllers/SavingsController.js';
+import { LoanController }         from './controllers/LoanController.js';
+import { SubscriptionController } from './controllers/SubscriptionController.js';
+import { AnalyticsController }    from './controllers/AnalyticsController.js';
+import { AdminController }        from './controllers/AdminController.js';
+
+/** Controller de assinaturas recorrentes */
+const subscriptionController = new SubscriptionController();
 
 /** Controller de navegação: gere o filtro de mês, tabs e modo pessoal/partilhado */
 const navController = new NavigationController({
-    onMonthChange:  () => transactionController.refreshDashboard(),
+    onMonthChange:  () => {
+        transactionController.refreshDashboard();
+        // Propaga assinaturas para o mês seleccionado
+        const uid = state.currentUser?.uid;
+        if (uid) subscriptionController.propagateForMonth(uid, navController.getSelectedMonth());
+    },
     onModeChange:   (mode) => {
-        transactionController.restartSync();
+        try { transactionController.restartSync();   } catch (e) { console.error(e); }
+        try { savingsController.restartSync();        } catch (e) { console.error(e); }
+        try { loanController.restartSync();           } catch (e) { console.error(e); }
+        try { subscriptionController.restartSync();   } catch (e) { console.error(e); }
         DashboardView.updateViewModeUI(mode);
     },
     onAnalyticsTab: () => analyticsController.render(),
@@ -38,7 +50,11 @@ const clientsController = new ClientsController();
 /** Controller de espaço partilhado */
 const sharingController = new SharingController({
     onModeChange: (mode) => {
-        transactionController.restartSync();
+        navController.syncModeButtons(mode);
+        try { transactionController.restartSync();   } catch (e) { console.error(e); }
+        try { savingsController.restartSync();        } catch (e) { console.error(e); }
+        try { loanController.restartSync();           } catch (e) { console.error(e); }
+        try { subscriptionController.restartSync();   } catch (e) { console.error(e); }
         DashboardView.updateViewModeUI(mode);
     }
 });
@@ -70,16 +86,23 @@ const authController = new AuthController({
         clientsController.startSync();
         savingsController.startSync(user.uid);
         loanController.startSync(user.uid);
+        subscriptionController.startSync(user.uid);
         await cardController.loadCards(user.uid);
         transactionController.refreshCategorySelectors();
         transactionController.refreshMethodSelectors();
+        subscriptionController.refreshCategorySelect();
         adminController.onLogin(user);
+        // Propaga assinaturas para o mês actual após um tick (aguarda transactions snapshot)
+        setTimeout(() => {
+            subscriptionController.propagateForMonth(user.uid, navController.getSelectedMonth());
+        }, 2500);
     },
     onLogout: () => {
         transactionController.stopSync();
         clientsController.stopSync();
         savingsController.stopSync();
         loanController.stopSync();
+        subscriptionController.stopSync();
         adminController.onLogout();
     }
 });
@@ -109,6 +132,7 @@ window.addEventListener('DOMContentLoaded', () => {
     cardController.init();
     savingsController.init();
     loanController.init();
+    subscriptionController.init();
     analyticsController.init();
     adminController.init();
 

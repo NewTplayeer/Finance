@@ -122,9 +122,14 @@ export const TransactionModel = {
      * @param {string|null} spaceId
      * @returns {function} unsubscribe
      */
-    subscribe(uid, callback, spaceId = null) {
-        return onSnapshot(getActiveRef(uid, spaceId), snap => {
-            callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
+    subscribe(uid, callback, spaceId = null, onError = null) {
+        return onSnapshot(
+            getActiveRef(uid, spaceId),
+            snap => { callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))); },
+            err  => {
+                console.error('TransactionModel.subscribe error:', err);
+                if (onError) onError(err);
+            }
+        );
     }
 };
