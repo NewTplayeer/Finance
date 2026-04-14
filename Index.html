@@ -273,11 +273,11 @@
                             <input type="number" step="0.01" min="0.01" id="amount" placeholder="Valor (R$)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
                             <input type="text" id="bank-input" placeholder="Banco (Ex: Nubank)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
                             <input type="text" id="place-input" placeholder="Local / Estabelecimento (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 sm:col-span-2">
-                            <!-- Categoria + botão de nova categoria -->
+                            <!-- Categoria + botão de gerir categorias -->
                             <div class="flex gap-2">
                                 <select id="category" class="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none min-w-0"></select>
-                                <button type="button" id="btn-new-category-inline" title="Nova categoria"
-                                    class="shrink-0 w-12 bg-slate-50 border border-slate-200 rounded-2xl text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition font-bold text-xl leading-none">+</button>
+                                <button type="button" id="btn-new-category-inline" title="Gerir categorias &amp; métodos"
+                                    class="shrink-0 w-12 bg-slate-50 border border-slate-200 rounded-2xl text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition font-bold text-xl leading-none">⚙</button>
                             </div>
                             <select id="method" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none">
                                 <option value="Dinheiro/Pix">Dinheiro/Pix</option>
@@ -286,15 +286,6 @@
                                 <option value="Boleto">Boleto</option>
                             </select>
                             <input type="number" id="installments" min="1" max="48" placeholder="Parcelas (1)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                            <!-- Linha oculta: nova categoria -->
-                            <div id="new-cat-row" class="hidden col-span-full">
-                                <div class="flex gap-2 items-center">
-                                    <input type="text" id="new-cat-input" placeholder="Nome da nova categoria (ex: Assinaturas)"
-                                        class="flex-1 p-4 bg-indigo-50 border-2 border-indigo-300 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                                    <button type="button" id="new-cat-confirm" class="px-5 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition text-sm shrink-0">Adicionar</button>
-                                    <button type="button" id="new-cat-cancel" class="px-4 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl hover:bg-slate-200 transition text-sm shrink-0">✕</button>
-                                </div>
-                            </div>
                             <select id="client-id-select" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none sm:col-span-2">
                                 <option value="">Sem cliente vinculado</option>
                             </select>
@@ -366,25 +357,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- RELATÓRIO PDF -->
-                    <div id="pdf-panel" class="hidden bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
-                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-5 tracking-[0.2em]">Relatório PDF</h3>
-                        <div class="grid grid-cols-2 gap-3 mb-4">
-                            <div>
-                                <label class="text-[10px] text-slate-400 block mb-1">De</label>
-                                <input type="date" id="pdf-date-from" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-400">
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-slate-400 block mb-1">Até</label>
-                                <input type="date" id="pdf-date-to" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-400">
-                            </div>
-                        </div>
-                        <button id="btn-generate-pdf" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition shadow-lg text-sm">
-                            Gerar e Descarregar PDF
-                        </button>
-                        <p class="text-[10px] text-slate-400 text-center mt-2">Deixa as datas em branco para exportar tudo.</p>
                     </div>
 
                     <!-- COFRINHOS -->
@@ -525,17 +497,6 @@
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow text-center dark-card">
                         <h2 class="text-xs font-bold text-slate-400 uppercase mb-6 tracking-[0.2em]">Gastos por Categoria</h2>
                         <div class="h-56"><canvas id="pieChart"></canvas></div>
-                    </div>
-
-                    <!-- GESTÃO DE CATEGORIAS -->
-                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
-                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-5 tracking-[0.2em]">Categorias</h3>
-                        <div id="categories-manager-list" class="mb-4 space-y-1.5"></div>
-                        <div class="flex gap-2 pt-3 border-t border-slate-100">
-                            <input type="text" id="new-category-manager-input" placeholder="Nova categoria…"
-                                class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                            <button id="btn-add-category-manager" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Adicionar</button>
-                        </div>
                     </div>
 
                     <!-- METAS DE GASTOS (edição inline) -->
@@ -771,16 +732,11 @@
                     </div>
                 </div>
 
-                <!-- Métodos de Pagamento -->
+                <!-- Acesso ao modal de Categorias & Métodos -->
                 <div class="mb-6 border-t border-slate-100 pt-6">
-                    <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-4 tracking-[0.2em]">Métodos de Pagamento</h4>
-                    <div id="methods-list" class="mb-3"></div>
-                    <div class="flex gap-2">
-                        <input type="text" id="new-method-input" placeholder="Ex: Crédito Empresarial"
-                            class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                        <button id="btn-add-method" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Método</button>
-                    </div>
-                    <p class="text-[10px] text-slate-400 mt-2">Padrão: Dinheiro/Pix, Cartão Débito, Cartão, Boleto</p>
+                    <button id="btn-open-cat-methods-from-profile" class="w-full py-3 bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition text-sm flex items-center justify-center gap-2">
+                        <span>⚙️</span> Gerir Categorias &amp; Métodos de Pagamento
+                    </button>
                 </div>
 
                 <!-- Faturas / Cartões -->
@@ -1154,14 +1110,68 @@
         </div>
     </div>
 
-    <script>
-        /* Toggle do painel PDF */
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('btn-open-pdf-panel')?.addEventListener('click', function() {
-                document.getElementById('pdf-panel')?.classList.toggle('hidden');
-            });
-        });
-    </script>
-    <script type="module" src="js/app.js?v=19"></script>
+    <!-- MODAL RELATÓRIO PDF -->
+    <div id="pdf-modal" class="fixed inset-0 z-[500] hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-white rounded-[2.5rem] max-w-sm w-full shadow-2xl border border-slate-100">
+            <div class="p-8">
+                <h3 class="text-xl font-bold text-slate-900 mb-6 tracking-tight text-center">Relatório PDF</h3>
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">De</label>
+                        <input type="date" id="pdf-date-from" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-400">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Até</label>
+                        <input type="date" id="pdf-date-to" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-400">
+                    </div>
+                </div>
+                <p class="text-[10px] text-slate-400 text-center mb-4">Deixa as datas em branco para exportar tudo.</p>
+                <div class="flex flex-col gap-3">
+                    <button id="btn-generate-pdf" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition shadow-lg">
+                        Gerar e Descarregar PDF
+                    </button>
+                    <button id="btn-close-pdf-modal" class="w-full py-3 text-slate-400 font-bold text-sm transition hover:text-slate-600">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CATEGORIAS & MÉTODOS -->
+    <div id="cat-methods-modal" class="fixed inset-0 z-[500] hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-white rounded-[2.5rem] max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-slate-900 tracking-tight">Categorias &amp; Métodos</h3>
+                    <button id="btn-close-cat-methods-modal" class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition font-bold">✕</button>
+                </div>
+                <!-- Tab toggle -->
+                <div class="flex gap-1 mb-6 p-1 bg-slate-100 rounded-2xl">
+                    <button id="cat-methods-tab-cat" class="flex-1 py-2.5 text-xs font-bold rounded-xl transition bg-white text-slate-900 shadow-sm">Categorias</button>
+                    <button id="cat-methods-tab-methods" class="flex-1 py-2.5 text-xs font-bold rounded-xl transition text-slate-500 hover:text-slate-700">Métodos de Pagamento</button>
+                </div>
+                <!-- Painel Categorias -->
+                <div id="cat-methods-panel-cat">
+                    <div id="categories-manager-list" class="mb-4 space-y-1.5 max-h-64 overflow-y-auto pr-1"></div>
+                    <div class="flex gap-2 pt-3 border-t border-slate-100">
+                        <input type="text" id="new-category-manager-input" placeholder="Nova categoria…"
+                            class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                        <button id="btn-add-category-manager" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Adicionar</button>
+                    </div>
+                </div>
+                <!-- Painel Métodos -->
+                <div id="cat-methods-panel-methods" class="hidden">
+                    <div id="methods-list" class="mb-3 max-h-64 overflow-y-auto pr-1"></div>
+                    <div class="flex gap-2 pt-3 border-t border-slate-100">
+                        <input type="text" id="new-method-input" placeholder="Ex: Crédito Empresarial"
+                            class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                        <button id="btn-add-method" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Método</button>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-2">Padrão: Dinheiro/Pix, Cartão Débito, Cartão, Boleto</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js?v=20"></script>
 </body>
 </html>
