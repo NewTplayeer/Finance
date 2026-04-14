@@ -153,10 +153,10 @@
                     </div>
 
                     <div class="flex items-center gap-3 flex-wrap justify-end">
-                        <!-- Status Ollama -->
+                        <!-- Status Gemini AI -->
                         <div id="sync-status" class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
                             <span id="sync-indicator" class="w-2 h-2 bg-slate-300 rounded-full"></span>
-                            <span id="sync-status-text">Ollama Local</span>
+                            <span id="sync-status-text">Gemini AI</span>
                         </div>
 
                         <!-- Toggle Modo Pessoal/Partilhado -->
@@ -247,8 +247,8 @@
                             <span class="text-8xl font-black italic tracking-tighter">AI</span>
                         </div>
                         <h2 class="text-xl font-bold flex items-center gap-3 text-slate-800 mb-6">
-                            <span class="p-2 bg-indigo-100 rounded-2xl text-indigo-600">🦙</span>
-                            Gestor Mágico Local
+                            <span class="p-2 bg-indigo-100 rounded-2xl text-indigo-600">✨</span>
+                            Gestor Mágico com Gemini
                         </h2>
                         <div class="relative group">
                             <input type="text" id="ai-input" placeholder="Ex: Mercado 150 débito Nubank, Netflix 45 crédito..."
@@ -818,7 +818,7 @@
 
                 <!-- ─── Tab: Texto ─────────────────────────────────── -->
                 <div id="import-tab-text">
-                    <p class="text-xs text-slate-400 mb-3">Cola o texto do extrato abaixo. O Ollama interpretará e criará os registos automaticamente.</p>
+                    <p class="text-xs text-slate-400 mb-3">Cola o texto do extrato abaixo. O Gemini interpretará e criará os registos automaticamente.</p>
                     <textarea id="import-text" rows="10"
                         class="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                         placeholder="Copia aqui o texto do teu extrato bancário…"></textarea>
@@ -854,7 +854,7 @@
 
                 <!-- ─── Tab: PDF ───────────────────────────────────── -->
                 <div id="import-tab-pdf" class="hidden">
-                    <p class="text-xs text-slate-400 mb-4">O PDF.js extrai o texto do documento e envia ao Ollama para interpretação. Funciona com PDFs digitais — PDFs digitalizados (fotos) não são suportados.</p>
+                    <p class="text-xs text-slate-400 mb-4">O PDF.js extrai o texto do documento e envia ao Gemini para interpretação. Funciona com PDFs digitais — PDFs digitalizados (fotos) não são suportados.</p>
 
                     <!-- Zona de drop PDF -->
                     <label id="pdf-dropzone" class="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-rose-300 hover:bg-rose-50/20 transition-all mb-4">
@@ -876,8 +876,8 @@
                         <button id="pdf-clear-btn" class="text-slate-300 hover:text-rose-500 font-bold text-sm">✕</button>
                     </div>
 
-                    <p class="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5">
-                        ⚠️ O Ollama tem de estar a correr localmente para processar o PDF.
+                    <p class="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5">
+                        ℹ️ O texto do PDF é extraído localmente e enviado ao Gemini via internet para interpretação.
                     </p>
                 </div>
 
@@ -1172,6 +1172,6 @@
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=20"></script>
+    <script type="module" src="js/app.js?v=21"></script>
 </body>
 </html>

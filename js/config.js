@@ -9,9 +9,13 @@ export const firebaseConfig = {
     measurementId: "G-FTCB5773XL"
 };
 
-export const ollamaConfig = {
-    baseUrl: "http://127.0.0.1:11434/api/chat",
-    model: "llama3"
+/**
+ * Google Gemini API — obtém a tua chave em https://aistudio.google.com/apikey
+ * Restringe a chave ao teu domínio em: https://console.cloud.google.com/apis/credentials
+ */
+export const geminiConfig = {
+    apiKey: "AIzaSyCCTfUVzC5bciICHJZPX2jLR5kb8kUpA2M",
+    model:  "gemini-2.0-flash"
 };
 
 export const APP_ID = 'bruno-financas-v3-auth';

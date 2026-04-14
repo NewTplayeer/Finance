@@ -1,16 +1,19 @@
 /**
- * AIService — envia texto para o modelo Ollama local e interpreta a resposta como
+ * AIService — envia texto para o Google Gemini e interpreta a resposta como
  * uma lista de transações financeiras em JSON.
+ *
+ * Endpoint: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+ * Documentação: https://ai.google.dev/api/generate-content
  */
-import { ollamaConfig } from '../config.js';
+import { geminiConfig } from '../config.js';
 
 export const AIService = {
     /**
-     * Processa um texto livre e extrai transações financeiras via Ollama.
+     * Processa um texto livre e extrai transações financeiras via Gemini.
      * @param {string} text - texto a interpretar (ex: extrato, frase natural)
      * @param {{ onSuccess, onError, onStart, onEnd }} callbacks
      *   - onSuccess(data): chamado com { items: [...] } quando a IA responde com sucesso
-     *   - onError(err): chamado quando o Ollama não está disponível ou retorna erro
+     *   - onError(err): chamado quando a API não está disponível ou retorna erro
      *   - onStart(): chamado antes do fetch (útil para mostrar loaders)
      *   - onEnd(): chamado sempre no final, independentemente do resultado
      */
@@ -43,22 +46,31 @@ REGRAS:
 
 Texto: "${text}"`;
 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiConfig.model}:generateContent?key=${geminiConfig.apiKey}`;
+
         try {
-            const response = await fetch(ollamaConfig.baseUrl, {
+            const response = await fetch(url, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({
-                    model:    ollamaConfig.model,
-                    messages: [{ role: 'user', content: prompt }],
-                    stream:   false,
-                    format:   'json'
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        temperature: 0.1
+                    }
                 })
             });
 
-            if (!response.ok) throw new Error("Ollama não respondeu (status " + response.status + ")");
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                const errMsg  = errBody?.error?.message || `HTTP ${response.status}`;
+                throw new Error('Gemini API: ' + errMsg);
+            }
 
             const res = await response.json();
-            const raw = res.message?.content || res.response || '';
+            const raw = res.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+            if (!raw) throw new Error('Gemini não retornou conteúdo.');
 
             /* Tenta fazer parse do JSON; se falhar, extrai o primeiro bloco {...} */
             let data;
@@ -67,7 +79,7 @@ Texto: "${text}"`;
             } catch {
                 const match = raw.match(/\{[\s\S]*\}/);
                 if (match) data = JSON.parse(match[0]);
-                else throw new Error("Resposta da IA não é JSON válido");
+                else throw new Error('Resposta da IA não é JSON válido');
             }
 
             /* Normaliza para garantir { items: [...] } independentemente do formato da resposta */
@@ -92,16 +104,16 @@ Texto: "${text}"`;
 
             /* Normaliza os campos de cada item para o formato interno da aplicação */
             data.items = (data.items || []).map(i => ({
-                desc:     i.desc     || i.descricao || i.item || i.description || i.nome || "Sem descrição",
+                desc:     i.desc     || i.descricao || i.item || i.description || i.nome || 'Sem descrição',
                 amount:   parseFloat(i.amount || i.total || i.valor || i.value || i.preco || 0),
-                category: i.category || i.categoria || "Outros",
-                method:   i.method   || i.metodo    || i.pagamento || "Dinheiro/Pix",
-                bank:     i.bank     || i.banco     || ""
-            })).filter(i => i.amount > 0 || i.desc !== "Sem descrição");
+                category: i.category || i.categoria || 'Outros',
+                method:   i.method   || i.metodo    || i.pagamento || 'Dinheiro/Pix',
+                bank:     i.bank     || i.banco     || ''
+            })).filter(i => i.amount > 0 || i.desc !== 'Sem descrição');
 
             if (onSuccess) onSuccess(data);
         } catch (e) {
-            console.error("Erro na ligação ao Ollama:", e);
+            console.error('Erro na ligação ao Gemini:', e);
             if (onError) onError(e);
         } finally {
             if (onEnd) onEnd();
