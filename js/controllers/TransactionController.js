@@ -808,10 +808,24 @@ export class TransactionController {
                 DashboardView.setAIStatus(true);
             },
             onError: (err) => {
-                const isKeyError = err?.message?.includes('API_KEY') || err?.message?.includes('401') || err?.message?.includes('403');
-                const msg = isKeyError
-                    ? 'Chave da API Gemini inválida ou sem permissão. Verifica a chave em config.js.'
-                    : 'Erro ao contactar o Gemini. Verifica a tua ligação à internet.';
+                const code = err?.code;
+                let msg;
+                if (code === 'NO_KEY') {
+                    msg = 'Chave Gemini não configurada. Edita js/config.js e substitui "SUA_CHAVE_GEMINI_AQUI".';
+                } else if (code === 400 || err?.apiStatus === 'INVALID_ARGUMENT' ||
+                           (err?.message || '').toLowerCase().includes('api key')) {
+                    msg = 'Chave da API Gemini inválida. Verifica a chave em js/config.js.';
+                } else if (code === 403 || err?.apiStatus === 'PERMISSION_DENIED') {
+                    msg = 'Acesso negado pela API Gemini. Verifica se a chave tem permissão para o modelo.';
+                } else if (code === 429 || err?.apiStatus === 'RESOURCE_EXHAUSTED') {
+                    msg = 'Limite de pedidos Gemini atingido. Aguarda um momento e tenta novamente.';
+                } else if (code === 'BLOCKED') {
+                    msg = 'Gemini bloqueou a resposta (filtro de conteúdo). Reformula o texto.';
+                } else if (code === 'NETWORK') {
+                    msg = 'Sem acesso à API Gemini. Verifica a tua ligação à internet.';
+                } else {
+                    msg = `Erro Gemini: ${err?.message || 'desconhecido'}`;
+                }
                 ModalView.showToast(msg, 'error');
                 DashboardView.setAIStatus(false);
             },

@@ -46,31 +46,54 @@ REGRAS:
 
 Texto: "${text}"`;
 
+        if (!geminiConfig.apiKey || geminiConfig.apiKey === 'AIzaSyAMDr0T4DdDT3c3LFyjWCBRdGmRKt99t0I') {
+            if (onEnd) onEnd();
+            const err = Object.assign(new Error('Chave da API Gemini não configurada.'), { code: 'NO_KEY' });
+            if (onError) onError(err);
+            return;
+        }
+
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiConfig.model}:generateContent?key=${geminiConfig.apiKey}`;
 
         try {
-            const response = await fetch(url, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: 'application/json',
-                        temperature: 0.1
-                    }
-                })
-            });
+            let response;
+            try {
+                response = await fetch(url, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            responseMimeType: 'application/json',
+                            temperature: 0.1
+                        }
+                    })
+                });
+            } catch (fetchErr) {
+                // Falha de rede (sem ligação, DNS, CORS, etc.)
+                const err = Object.assign(new Error(fetchErr.message || 'Falha de rede'), { code: 'NETWORK' });
+                throw err;
+            }
 
             if (!response.ok) {
                 const errBody = await response.json().catch(() => ({}));
-                const errMsg  = errBody?.error?.message || `HTTP ${response.status}`;
-                throw new Error('Gemini API: ' + errMsg);
+                const apiMsg  = errBody?.error?.message || '';
+                const status  = response.status;
+                const err     = Object.assign(
+                    new Error(apiMsg || `HTTP ${status}`),
+                    { code: status, apiStatus: errBody?.error?.status || '' }
+                );
+                throw err;
             }
 
             const res = await response.json();
             const raw = res.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-            if (!raw) throw new Error('Gemini não retornou conteúdo.');
+            if (!raw) {
+                // Pode acontecer quando o prompt é bloqueado por safety filters
+                const reason = res.candidates?.[0]?.finishReason || 'UNKNOWN';
+                throw Object.assign(new Error(`Gemini bloqueou a resposta (${reason}).`), { code: 'BLOCKED' });
+            }
 
             /* Tenta fazer parse do JSON; se falhar, extrai o primeiro bloco {...} */
             let data;
