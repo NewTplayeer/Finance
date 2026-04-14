@@ -14,7 +14,7 @@ export const firebaseConfig = {
  * Restringe a chave ao teu domínio em: https://console.cloud.google.com/apis/credentials
  */
 export const geminiConfig = {
-    apiKey: "AIzaSyCCTfUVzC5bciICHJZPX2jLR5kb8kUpA2M",
+    apiKey: "AIzaSyAMDr0T4DdDT3c3LFyjWCBRdGmRKt99t0I",
     model:  "gemini-2.0-flash"
 };
 
