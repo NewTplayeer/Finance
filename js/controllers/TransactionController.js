@@ -778,15 +778,15 @@ export class TransactionController {
             onSuccess: async (data) => {
                 const items = data.items || [];
                 if (items.length === 0) {
-                    ModalView.showToast("IA não conseguiu extrair dados. Tenta ser mais específico.", 'error');
-                    DashboardView.setOllamaStatus(true);
+                    ModalView.showToast('IA não conseguiu extrair dados. Tenta ser mais específico.', 'error');
+                    DashboardView.setAIStatus(true);
                     return;
                 }
 
                 // Mostra modal de confirmação antes de guardar
                 const confirmed = await ModalView.openAIConfirmModal(items);
                 if (!confirmed) {
-                    ModalView.showToast("Operação cancelada.");
+                    ModalView.showToast('Operação cancelada.');
                     return;
                 }
 
@@ -797,7 +797,7 @@ export class TransactionController {
                         amount: i.amount,
                         category: i.category,
                         method: i.method,
-                        dateKey: selectedMonth,  // ← usa o mês seleccionado, não o mês actual
+                        dateKey: selectedMonth,
                         bank: i.bank
                     });
                 }
@@ -805,11 +805,15 @@ export class TransactionController {
                 ModalView.showToast(`${items.length} item(s) adicionado(s)!`, 'success');
                 if (isImport) ModalView.closeImportModal();
                 else { const el = document.getElementById('ai-input'); if (el) el.value = ''; }
-                DashboardView.setOllamaStatus(true);
+                DashboardView.setAIStatus(true);
             },
-            onError: () => {
-                ModalView.showToast("Erro: Ollama offline. Corre '$env:OLLAMA_ORIGINS=\"*\"; ollama serve' no terminal.", 'error');
-                DashboardView.setOllamaStatus(false);
+            onError: (err) => {
+                const isKeyError = err?.message?.includes('API_KEY') || err?.message?.includes('401') || err?.message?.includes('403');
+                const msg = isKeyError
+                    ? 'Chave da API Gemini inválida ou sem permissão. Verifica a chave em config.js.'
+                    : 'Erro ao contactar o Gemini. Verifica a tua ligação à internet.';
+                ModalView.showToast(msg, 'error');
+                DashboardView.setAIStatus(false);
             },
             onEnd: () => {
                 if (isImport) ModalView.setImportLoading(false);

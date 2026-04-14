@@ -271,24 +271,27 @@ export const DashboardView = {
     },
 
     /**
-     * Actualiza o indicador de estado do Ollama na navbar.
+     * Actualiza o indicador de estado da IA (Gemini) na navbar.
      * @param {boolean} online
      */
-    setOllamaStatus(online) {
+    setAIStatus(online) {
         const syncInd = document.getElementById('sync-indicator');
         const syncTxt = document.getElementById('sync-status-text');
         if (!syncInd || !syncTxt) return;
 
         if (online) {
             syncInd.className = 'w-2 h-2 bg-emerald-500 rounded-full animate-pulse';
-            syncTxt.innerText = 'Ollama Online';
+            syncTxt.innerText = 'Gemini Online';
             syncTxt.parentElement.className = 'flex items-center gap-2 text-[10px] font-bold text-emerald-500 uppercase bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100';
         } else {
             syncInd.className = 'w-2 h-2 bg-rose-500 rounded-full';
-            syncTxt.innerText = 'Ollama Offline';
+            syncTxt.innerText = 'Gemini Offline';
             syncTxt.parentElement.className = 'flex items-center gap-2 text-[10px] font-bold text-rose-500 uppercase bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100';
         }
     },
+
+    /** @deprecated Use setAIStatus */
+    setOllamaStatus(online) { this.setAIStatus(online); },
 
     /**
      * Actualiza o badge de modo (Pessoal/Partilhado) na navbar.
