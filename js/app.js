@@ -29,7 +29,17 @@ const navController = new NavigationController({
         if (uid) subscriptionController.propagateForMonth(uid, navController.getSelectedMonth());
     },
     onModeChange:   (mode) => {
-        try { transactionController.restartSync();   } catch (e) { console.error(e); }
+        const uid = state.currentUser?.uid;
+        try {
+            transactionController.restartSync({
+                onFirstLoad: () => {
+                    if (uid) {
+                        subscriptionController._propagatedMonths.clear();
+                        subscriptionController.propagateForMonth(uid, navController.getSelectedMonth());
+                    }
+                }
+            });
+        } catch (e) { console.error(e); }
         try { savingsController.restartSync();        } catch (e) { console.error(e); }
         try { loanController.restartSync();           } catch (e) { console.error(e); }
         try { subscriptionController.restartSync();   } catch (e) { console.error(e); }
@@ -51,7 +61,17 @@ const clientsController = new ClientsController();
 const sharingController = new SharingController({
     onModeChange: (mode) => {
         navController.syncModeButtons(mode);
-        try { transactionController.restartSync();   } catch (e) { console.error(e); }
+        const uid = state.currentUser?.uid;
+        try {
+            transactionController.restartSync({
+                onFirstLoad: () => {
+                    if (uid) {
+                        subscriptionController._propagatedMonths.clear();
+                        subscriptionController.propagateForMonth(uid, navController.getSelectedMonth());
+                    }
+                }
+            });
+        } catch (e) { console.error(e); }
         try { savingsController.restartSync();        } catch (e) { console.error(e); }
         try { loanController.restartSync();           } catch (e) { console.error(e); }
         try { subscriptionController.restartSync();   } catch (e) { console.error(e); }
@@ -71,7 +91,9 @@ const cardController = new CardController();
 const savingsController = new SavingsController();
 
 /** Controller de empréstimos com cálculo de juros */
-const loanController = new LoanController();
+const loanController = new LoanController({
+    getSelectedMonth: () => navController.getSelectedMonth()
+});
 
 /** Controller de análise e estatísticas globais */
 const analyticsController = new AnalyticsController();
@@ -82,7 +104,13 @@ const adminController = new AdminController();
 /** Controller de autenticação — inicia todos os syncs ao fazer login */
 const authController = new AuthController({
     onLogin: async (user) => {
-        transactionController.startSync();
+        // Inicia sync das transações; propaga assinaturas apenas após o primeiro snapshot
+        // do Firestore (garante que state.transactions está preenchido antes de verificar duplicatas)
+        transactionController.startSync({
+            onFirstLoad: () => {
+                subscriptionController.propagateForMonth(user.uid, navController.getSelectedMonth());
+            }
+        });
         clientsController.startSync();
         savingsController.startSync(user.uid);
         loanController.startSync(user.uid);
@@ -92,10 +120,6 @@ const authController = new AuthController({
         transactionController.refreshMethodSelectors();
         subscriptionController.refreshCategorySelect();
         adminController.onLogin(user);
-        // Propaga assinaturas para o mês actual após um tick (aguarda transactions snapshot)
-        setTimeout(() => {
-            subscriptionController.propagateForMonth(user.uid, navController.getSelectedMonth());
-        }, 2500);
     },
     onLogout: () => {
         transactionController.stopSync();
@@ -154,6 +178,67 @@ window.addEventListener('DOMContentLoaded', () => {
         openProfileBtn.removeAttribute('onclick');
         openProfileBtn.onclick = () => authController.openProfileModal();
     }
+
+    // ── Modal unificado Categorias & Métodos ──────────────────────────────
+    const openCatMethodsModal = (tab = 'categories') => {
+        transactionController.refreshCategorySelectors();  // renders categories list
+        authController._renderMethodsList();                // renders methods list
+        // Switch para o tab correcto
+        const panelCat     = document.getElementById('cat-methods-panel-cat');
+        const panelMethods = document.getElementById('cat-methods-panel-methods');
+        const tabCat       = document.getElementById('cat-methods-tab-cat');
+        const tabMethods   = document.getElementById('cat-methods-tab-methods');
+        if (tab === 'methods') {
+            panelCat?.classList.add('hidden');
+            panelMethods?.classList.remove('hidden');
+            tabMethods?.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+            tabMethods?.classList.remove('text-slate-500');
+            tabCat?.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+            tabCat?.classList.add('text-slate-500');
+        } else {
+            panelMethods?.classList.add('hidden');
+            panelCat?.classList.remove('hidden');
+            tabCat?.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+            tabCat?.classList.remove('text-slate-500');
+            tabMethods?.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+            tabMethods?.classList.add('text-slate-500');
+        }
+        document.getElementById('cat-methods-modal')?.classList.remove('hidden');
+    };
+
+    document.getElementById('btn-close-cat-methods-modal')?.addEventListener('click', () => {
+        document.getElementById('cat-methods-modal')?.classList.add('hidden');
+    });
+    document.getElementById('cat-methods-tab-cat')?.addEventListener('click', () => openCatMethodsModal('categories'));
+    document.getElementById('cat-methods-tab-methods')?.addEventListener('click', () => openCatMethodsModal('methods'));
+
+    // Botão "+" junto ao select de categoria no formulário → abre modal
+    const inlineCatBtn = document.getElementById('btn-new-category-inline');
+    if (inlineCatBtn) {
+        inlineCatBtn.removeAttribute('onclick');
+        inlineCatBtn.addEventListener('click', () => openCatMethodsModal('categories'));
+    }
+
+    // Botão de acesso ao modal de cat/métodos no modal de perfil
+    document.getElementById('btn-open-cat-methods-from-profile')?.addEventListener('click', () => {
+        document.getElementById('profile-modal')?.classList.add('hidden');
+        openCatMethodsModal('methods');
+    });
+
+    // ── Modal PDF ─────────────────────────────────────────────────────────
+    document.getElementById('btn-open-pdf-panel')?.addEventListener('click', () => {
+        document.getElementById('pdf-modal')?.classList.remove('hidden');
+    });
+    document.getElementById('btn-close-pdf-modal')?.addEventListener('click', () => {
+        document.getElementById('pdf-modal')?.classList.add('hidden');
+    });
+
+    // ── Mudar mês → re-renderiza empréstimos (para actualizar pago/em aberto por mês) ──
+    const origOnMonthChange = navController.onMonthChange;
+    navController.onMonthChange = () => {
+        if (origOnMonthChange) origOnMonthChange();
+        loanController._renderLoans();
+    };
 
     // Iniciar autenticação — SEMPRE executa, independentemente do estado dos gráficos
     authController.init();

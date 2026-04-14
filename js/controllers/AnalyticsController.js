@@ -36,8 +36,9 @@ export class AnalyticsController {
         const el = document.getElementById('analytics-global-stats');
         if (!el) return;
 
+        const currentMonth = new Date().toISOString().slice(0, 7);
         const savingsTotal = (state.savings || []).reduce((s, j) => s + (j.saved || 0), 0);
-        const loansTotal   = (state.loans   || []).filter(l => !l.paid)
+        const loansTotal   = (state.loans   || []).filter(l => !(l.paidMonths || []).includes(currentMonth))
             .reduce((s, l) => s + LoanModel.calcTotal(l.amount, l.interestRate, l.startDate, l.dueDate), 0);
 
         el.innerHTML = `
@@ -205,27 +206,29 @@ export class AnalyticsController {
             return;
         }
 
-        const pending = loans.filter(l => !l.paid);
-        const settled = loans.filter(l => l.paid);
+        const thisMonth    = new Date().toISOString().slice(0, 7);
+        const pending      = loans.filter(l => !(l.paidMonths || []).includes(thisMonth));
+        const settled      = loans.filter(l =>  (l.paidMonths || []).includes(thisMonth));
         const totalPending = pending.reduce((s, l) =>
             s + LoanModel.calcTotal(l.amount, l.interestRate, l.startDate, l.dueDate), 0);
 
         el.innerHTML = `
             <div class="mb-4 flex flex-wrap gap-4 text-xs">
                 <span class="font-bold text-amber-700">${pending.length} em aberto · ${fmt(totalPending)}</span>
-                <span class="text-slate-400">${settled.length} quitado(s)</span>
+                <span class="text-slate-400">${settled.length} pago(s) este mês</span>
             </div>
             ${loans.map(l => {
                 const total   = LoanModel.calcTotal(l.amount, l.interestRate, l.startDate, l.dueDate);
-                const overdue = l.dueDate && !l.paid && new Date(l.dueDate) < new Date();
+                const isPaid  = (l.paidMonths || []).includes(thisMonth);
+                const overdue = l.dueDate && !isPaid && new Date(l.dueDate) < new Date();
                 return `
                     <div class="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
-                        <div class="w-2 h-2 rounded-full shrink-0 ${l.paid ? 'bg-emerald-400' : overdue ? 'bg-rose-500' : 'bg-amber-400'}"></div>
+                        <div class="w-2 h-2 rounded-full shrink-0 ${isPaid ? 'bg-emerald-400' : overdue ? 'bg-rose-500' : 'bg-amber-400'}"></div>
                         <div class="flex-1 min-w-0">
-                            <div class="text-sm font-semibold text-slate-800 ${l.paid ? 'line-through text-slate-400' : ''} truncate">${l.debtor}</div>
+                            <div class="text-sm font-semibold text-slate-800 ${isPaid ? 'line-through text-slate-400' : ''} truncate">${l.debtor}</div>
                             <div class="text-[10px] text-slate-400">${l.method}${overdue ? ' · <span class="text-rose-500 font-bold">VENCIDO</span>' : ''}</div>
                         </div>
-                        <span class="text-sm font-bold ${l.paid ? 'text-emerald-600' : overdue ? 'text-rose-600' : 'text-slate-700'} shrink-0">${fmt(total)}</span>
+                        <span class="text-sm font-bold ${isPaid ? 'text-emerald-600' : overdue ? 'text-rose-600' : 'text-slate-700'} shrink-0">${fmt(total)}</span>
                     </div>
                 `;
             }).join('')}

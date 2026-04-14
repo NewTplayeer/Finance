@@ -5,7 +5,7 @@
 import { db } from '../firebase.js';
 import { APP_ID } from '../config.js';
 import {
-    collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot
+    collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const getRef = (uid, spaceId = null) => spaceId
@@ -35,7 +35,7 @@ export const LoanModel = {
             paymentType,
             method,
             notes,
-            paid:      false,
+            paidMonths: [],
             creator:   uid,
             createdAt: new Date().toISOString()
         });
@@ -45,10 +45,21 @@ export const LoanModel = {
         await updateDoc(getDocRef(uid, id, spaceId), data);
     },
 
-    async togglePaid(uid, id, currentPaid, spaceId = null) {
-        const update = { paid: !currentPaid };
-        if (!currentPaid) update.paidAt = new Date().toISOString();
-        await updateDoc(getDocRef(uid, id, spaceId), update);
+    /**
+     * Alterna o estado pago/pendente de um empréstimo para um mês específico.
+     * @param {string} uid
+     * @param {string} id
+     * @param {boolean} isPaidForMonth - true se já estava pago neste mês
+     * @param {string} monthKey - YYYY-MM do mês a alternar
+     * @param {string|null} spaceId
+     */
+    async togglePaidForMonth(uid, id, isPaidForMonth, monthKey, spaceId = null) {
+        const docRef = getDocRef(uid, id, spaceId);
+        if (isPaidForMonth) {
+            await updateDoc(docRef, { paidMonths: arrayRemove(monthKey) });
+        } else {
+            await updateDoc(docRef, { paidMonths: arrayUnion(monthKey) });
+        }
     },
 
     async delete(uid, id, spaceId = null) {

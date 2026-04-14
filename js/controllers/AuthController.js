@@ -430,9 +430,16 @@ export class AuthController {
 
         this._updateSharedSpaceUI();
         this._renderBudgetGoals();
-        this._renderMethodsList();
 
-        // Evita registar o listener de métodos múltiplas vezes
+        document.getElementById('profile-modal')?.classList.remove('hidden');
+    }
+
+    /**
+     * Expõe renderização da lista de métodos — usado pelo modal unificado de Categorias & Métodos.
+     * Garante que o listener de adicionar método está registado.
+     */
+    _renderMethodsList() {
+        this.__renderMethodsListInternal();
         const addMethodBtn = document.getElementById('btn-add-method');
         if (addMethodBtn && !addMethodBtn._bound) {
             addMethodBtn._bound = true;
@@ -441,8 +448,6 @@ export class AuthController {
                 if (e.key === 'Enter') this._addMethod();
             });
         }
-
-        document.getElementById('profile-modal')?.classList.remove('hidden');
     }
 
     /** Actualiza a secção de espaço partilhado no modal de perfil */
@@ -575,7 +580,7 @@ export class AuthController {
      * Renderiza a lista completa de métodos de pagamento (padrão + personalizados).
      * Com ordenação (↑↓), edição inline, edição em massa e exclusão com validação.
      */
-    _renderMethodsList() {
+    __renderMethodsListInternal() {
         const container = document.getElementById('methods-list');
         if (!container) return;
 

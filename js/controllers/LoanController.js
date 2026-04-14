@@ -11,11 +11,15 @@ import { state }            from '../state.js';
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export class LoanController {
-    constructor() {
-        this._loans       = [];
-        this._uid         = null;
-        this._unsubscribe = null;
-        this._editingId   = null;
+    /**
+     * @param {{ getSelectedMonth?: function }} options
+     */
+    constructor({ getSelectedMonth } = {}) {
+        this._loans           = [];
+        this._uid             = null;
+        this._unsubscribe     = null;
+        this._editingId       = null;
+        this.getSelectedMonth = getSelectedMonth || (() => new Date().toISOString().slice(0, 7));
     }
 
     _activeSpaceId() {
@@ -197,7 +201,9 @@ export class LoanController {
             return;
         }
 
-        const pending      = this._loans.filter(l => !l.paid);
+        const currentMonthKey = this.getSelectedMonth();
+
+        const pending      = this._loans.filter(l => !(l.paidMonths || []).includes(currentMonthKey));
         const totalPending = pending.reduce((s, l) =>
             s + LoanModel.calcTotal(l.amount, l.interestRate, l.startDate, l.dueDate), 0);
 
@@ -211,7 +217,8 @@ export class LoanController {
             const total        = LoanModel.calcTotal(loan.amount, loan.interestRate, loan.startDate, loan.dueDate);
             const installments = loan.installments || 1;
             const installValue = total / installments;
-            const overdue      = loan.dueDate && !loan.paid && new Date(loan.dueDate + 'T12:00:00') < new Date();
+            const isPaid       = (loan.paidMonths || []).includes(currentMonthKey);
+            const overdue      = loan.dueDate && !isPaid && new Date(loan.dueDate + 'T12:00:00') < new Date();
             const hasInt       = (loan.interestRate || 0) > 0;
 
             const typeBadge = loan.paymentType ? `<span class="px-1.5 py-0.5 text-[10px] font-bold rounded-lg ${
@@ -226,16 +233,16 @@ export class LoanController {
                 ? `<span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-semibold">dia ${loan.paymentDay}</span>` : '';
 
             return `
-            <div class="flex items-start gap-3 p-3 rounded-2xl mb-2 ${loan.paid ? 'bg-emerald-50/50 opacity-70' : overdue ? 'bg-rose-50' : 'bg-slate-50'}">
-                <button data-loan-toggle="${loan.id}" data-loan-paid="${loan.paid}" data-loan-type="${loan.paymentType || 'Saldo'}"
+            <div class="flex items-start gap-3 p-3 rounded-2xl mb-2 ${isPaid ? 'bg-emerald-50/50 opacity-70' : overdue ? 'bg-rose-50' : 'bg-slate-50'}">
+                <button data-loan-toggle="${loan.id}" data-loan-month-paid="${isPaid}" data-loan-month-key="${currentMonthKey}" data-loan-type="${loan.paymentType || 'Saldo'}"
                     class="mt-0.5 w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition hover:scale-110
-                    ${loan.paid ? 'bg-emerald-500 border-emerald-500 text-white' : overdue ? 'border-rose-400' : 'border-slate-300'}">
-                    ${loan.paid ? '<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                    ${isPaid ? 'bg-emerald-500 border-emerald-500 text-white' : overdue ? 'border-rose-400' : 'border-slate-300'}">
+                    ${isPaid ? '<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 </button>
                 <div class="flex-1 min-w-0">
                     <div class="flex justify-between items-start gap-2">
                         <div class="min-w-0 flex-1">
-                            <div class="text-sm font-bold ${loan.paid ? 'line-through text-slate-400' : 'text-slate-800'}">${loan.debtor}</div>
+                            <div class="text-sm font-bold ${isPaid ? 'line-through text-slate-400' : 'text-slate-800'}">${loan.debtor}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">
                                 ${loan.method} · ${DateUtils.toBR(loan.startDate)}${loan.dueDate ? ` → ${DateUtils.toBR(loan.dueDate)}` : ''}
                                 ${overdue ? '<span class="text-rose-500 font-bold ml-1">VENCIDO</span>' : ''}
@@ -245,7 +252,7 @@ export class LoanController {
                             ${loan.notes ? `<div class="text-[10px] text-slate-400 mt-0.5 italic truncate">${loan.notes}</div>` : ''}
                         </div>
                         <div class="text-right shrink-0">
-                            <div class="text-sm font-bold ${loan.paid ? 'text-emerald-600' : overdue ? 'text-rose-600' : 'text-slate-900'}">${fmt(total)}</div>
+                            <div class="text-sm font-bold ${isPaid ? 'text-emerald-600' : overdue ? 'text-rose-600' : 'text-slate-900'}">${fmt(total)}</div>
                             ${hasInt ? `<div class="text-[10px] text-slate-400">${fmt(loan.amount)} +${loan.interestRate}%/mês</div>` : ''}
                         </div>
                     </div>
@@ -259,19 +266,19 @@ export class LoanController {
 
         container.querySelectorAll('[data-loan-toggle]').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const uid         = state.currentUser?.uid;
-                const loanId      = btn.dataset.loanToggle;
-                const currentPaid = btn.dataset.loanPaid === 'true';
-                const payType     = btn.dataset.loanType;
+                const uid          = state.currentUser?.uid;
+                const loanId       = btn.dataset.loanToggle;
+                const isPaidMonth  = btn.dataset.loanMonthPaid === 'true';
+                const monthKey     = btn.dataset.loanMonthKey;
+                const payType      = btn.dataset.loanType;
                 if (!uid) return;
 
-                await LoanModel.togglePaid(uid, loanId, currentPaid, this._activeSpaceId());
+                await LoanModel.togglePaidForMonth(uid, loanId, isPaidMonth, monthKey, this._activeSpaceId());
 
-                if (!currentPaid && payType === 'Crédito') {
+                if (!isPaidMonth && payType === 'Crédito') {
                     const loan = this._loans.find(l => l.id === loanId);
                     if (loan) {
-                        const total    = LoanModel.calcTotal(loan.amount, loan.interestRate, loan.startDate, loan.dueDate);
-                        const monthKey = DateUtils.toMonthKey(DateUtils.today());
+                        const total = LoanModel.calcTotal(loan.amount, loan.interestRate, loan.startDate, loan.dueDate);
                         await TransactionModel.add(uid, {
                             desc: `Quitação (Crédito) — ${loan.debtor}`, amount: total,
                             category: 'Receita', method: loan.method || 'Transferência',

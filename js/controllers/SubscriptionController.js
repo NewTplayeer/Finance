@@ -18,10 +18,12 @@ const fmt = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currenc
 
 export class SubscriptionController {
     constructor() {
-        this._subs        = [];
-        this._uid         = null;
-        this._unsubscribe = null;
-        this._propagating = false;
+        this._subs             = [];
+        this._uid              = null;
+        this._unsubscribe      = null;
+        this._propagating      = false;
+        /** Meses já propagados nesta sessão — evita duplicatas ao recarregar */
+        this._propagatedMonths = new Set();
     }
 
     _activeSpaceId() {
@@ -56,8 +58,9 @@ export class SubscriptionController {
 
     stopSync() {
         if (this._unsubscribe) { this._unsubscribe(); this._unsubscribe = null; }
-        this._subs       = [];
-        state.subscriptions = [];
+        this._subs             = [];
+        state.subscriptions    = [];
+        this._propagatedMonths.clear();
         this._renderSubs();
     }
 
@@ -68,8 +71,18 @@ export class SubscriptionController {
      * @param {string} uid
      * @param {string} monthKey - YYYY-MM
      */
+    /**
+     * Propaga assinaturas activas para o mês indicado.
+     * Seguro chamar múltiplas vezes — não cria duplicatas (verifica Firestore + set de sessão).
+     * @param {string} uid
+     * @param {string} monthKey - YYYY-MM
+     */
     async propagateForMonth(uid, monthKey) {
         if (!uid || !monthKey || this._propagating) return;
+
+        // Já propagado nesta sessão para este mês — ignora para evitar duplicatas ao recarregar
+        if (this._propagatedMonths.has(monthKey)) return;
+
         const activeSubs = this._subs.filter(s => s.active);
         if (!activeSubs.length) return;
 
@@ -104,6 +117,8 @@ export class SubscriptionController {
                     paid:           false
                 }, spaceId);
             }
+            // Marca este mês como propagado na sessão actual
+            this._propagatedMonths.add(monthKey);
         } finally {
             this._propagating = false;
         }

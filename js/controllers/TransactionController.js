@@ -133,18 +133,29 @@ export class TransactionController {
         return (state.viewMode === 'shared' && state.sharedSpaceId) ? state.sharedSpaceId : null;
     }
 
-    /** Inicia a sincronização em tempo real com o Firestore */
-    startSync() {
+    /**
+     * Inicia a sincronização em tempo real com o Firestore.
+     * @param {{ onFirstLoad?: function }} [options]
+     */
+    startSync({ onFirstLoad } = {}) {
         const uid = state.currentUser?.uid;
         if (!uid) return;
 
         if (state.unsubscribeTrans) state.unsubscribeTrans();
+
+        let firstSnapshot = true;
 
         state.unsubscribeTrans = TransactionModel.subscribe(
             uid,
             (data) => {
                 state.transactions = data;
                 this.refreshDashboard();
+                // Dispara callback apenas no primeiro snapshot — garante que as transações
+                // estão carregadas antes de propagar assinaturas
+                if (firstSnapshot && onFirstLoad) {
+                    firstSnapshot = false;
+                    onFirstLoad();
+                }
             },
             this._activeSpaceId(),
             (err) => {
@@ -161,10 +172,13 @@ export class TransactionController {
         if (state.unsubscribeTrans) { state.unsubscribeTrans(); state.unsubscribeTrans = null; }
     }
 
-    /** Reinicia o sync quando muda de modo (pessoal/partilhado) */
-    restartSync() {
+    /**
+     * Reinicia o sync quando muda de modo (pessoal/partilhado).
+     * @param {{ onFirstLoad?: function }} [options]
+     */
+    restartSync({ onFirstLoad } = {}) {
         this.stopSync();
-        this.startSync();
+        this.startSync({ onFirstLoad });
     }
 
     /** Actualiza todos os widgets do dashboard com os dados do mês seleccionado */
