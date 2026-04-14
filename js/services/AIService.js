@@ -5,7 +5,7 @@
  * Endpoint: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
  * Documentação: https://ai.google.dev/api/generate-content
  */
-import { geminiConfig } from '../config.js';
+import { geminiConfig } from '../config.js?v=2';
 
 export const AIService = {
     /**
@@ -46,14 +46,14 @@ REGRAS:
 
 Texto: "${text}"`;
 
-        if (!geminiConfig.apiKey || geminiConfig.apiKey === 'AIzaSyAMDr0T4DdDT3c3LFyjWCBRdGmRKt99t0I') {
+        if (!geminiConfig.apiKey || geminiConfig.apiKey === 'AIzaSyDrqiGccJlt5bjVC9vIkl2IducGQa8RSMY') {
             if (onEnd) onEnd();
             const err = Object.assign(new Error('Chave da API Gemini não configurada.'), { code: 'NO_KEY' });
             if (onError) onError(err);
             return;
         }
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiConfig.model}:generateContent?key=${geminiConfig.apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
 
         try {
             let response;
