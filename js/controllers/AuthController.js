@@ -23,6 +23,7 @@ import { AdminModel } from '../models/AdminModel.js';
 import { LogModel } from '../models/LogModel.js';
 import { state } from '../state.js';
 import { ModalView } from '../views/ModalView.js';
+import { ExportUtils } from '../utils/ExportUtils.js';
 
 /** Formata input de CPF enquanto o utilizador digita: 000.000.000-00 */
 const maskCpf = (v) => v.replace(/\D/g, '').slice(0, 11)
@@ -343,6 +344,9 @@ export class AuthController {
     _bindProfileModal() {
         const openBtn = document.getElementById('nav-avatar');
         if (openBtn) openBtn.onclick = () => this.openProfileModal();
+
+        const exportBtn = document.getElementById('btn-export-json');
+        if (exportBtn) exportBtn.onclick = () => ExportUtils.exportDatabaseToJson();
     }
 
     /**

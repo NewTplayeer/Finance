@@ -28,19 +28,24 @@ export const TransactionModel = {
      */
     async add(uid, {
         desc, amount, category,
-        installments = 1,
-        method       = 'Dinheiro/Pix',
-        dateKey      = currentMonthKey,
-        date         = '',
-        bank         = '',
-        place        = '',
-        clientId     = ''
+        installments    = 1,
+        method          = 'Dinheiro/Pix',
+        dateKey         = currentMonthKey,
+        date            = '',
+        bank            = '',
+        place           = '',
+        clientId        = '',
+        subscriptionId  = null
     }, spaceId = null) {
         const ref = getActiveRef(uid, spaceId);
         const n   = Math.max(1, Math.floor(installments));
         const part = parseFloat((amount / n).toFixed(2));
         const [baseYear, baseMonth] = dateKey.split('-').map(Number);
         const baseDate = date || new Date().toISOString().slice(0, 10);
+        // Agrupa parcelas com um ID único para poder eliminar este e os futuros
+        const installmentGroupId = n > 1
+            ? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+            : null;
 
         for (let i = 0; i < n; i++) {
             const d = new Date(baseYear, baseMonth - 1 + i, 1);
@@ -53,7 +58,7 @@ export const TransactionModel = {
                 entryDate = pd.toISOString().slice(0, 10);
             }
             const isPaid = (method === 'Dinheiro/Pix' || method === 'Cartão Débito' || category === 'Receita');
-            await addDoc(ref, {
+            const entry = {
                 desc:     n > 1 ? `${desc} (${i + 1}/${n})` : desc,
                 amount:   part,
                 category,
@@ -66,7 +71,10 @@ export const TransactionModel = {
                 paid:     isPaid,
                 creator:  uid,
                 createdAt: new Date().toISOString()
-            });
+            };
+            if (subscriptionId)     entry.subscriptionId     = subscriptionId;
+            if (installmentGroupId) entry.installmentGroupId = installmentGroupId;
+            await addDoc(ref, entry);
         }
     },
 

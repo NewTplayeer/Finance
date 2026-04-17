@@ -36,7 +36,8 @@ export const ModalView = {
         onConfirm,
         onCancel,
         confirmLabel = "Sim, eliminar",
-        confirmClass = "w-full py-4 bg-rose-600 text-white font-bold rounded-2xl transition hover:bg-rose-700"
+        confirmClass = "w-full py-4 bg-rose-600 text-white font-bold rounded-2xl transition hover:bg-rose-700",
+        extraButtons = []
     }) {
         const m       = document.getElementById('confirm-modal');
         const btns    = document.getElementById('modal-buttons');
@@ -52,14 +53,22 @@ export const ModalView = {
         b1.innerText   = confirmLabel;
         b1.className   = confirmClass;
         b1.onclick     = () => { onConfirm?.(); m.classList.add('hidden'); };
+        btns.appendChild(b1);
+
+        extraButtons.forEach(({ label, className, onClick }) => {
+            const btn     = document.createElement('button');
+            btn.innerText = label;
+            btn.className = className;
+            btn.onclick   = () => { onClick?.(); m.classList.add('hidden'); };
+            btns.appendChild(btn);
+        });
 
         const b2       = document.createElement('button');
         b2.innerText   = "Cancelar";
         b2.className   = "w-full py-4 bg-slate-100 font-bold rounded-2xl transition hover:bg-slate-200";
         b2.onclick     = () => { onCancel?.(); m.classList.add('hidden'); };
-
-        btns.appendChild(b1);
         btns.appendChild(b2);
+
         m.classList.remove('hidden');
     },
 

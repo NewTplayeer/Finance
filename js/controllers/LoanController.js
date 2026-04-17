@@ -299,13 +299,29 @@ export class LoanController {
 
         container.querySelectorAll('[data-loan-delete]').forEach(btn => {
             btn.addEventListener('click', () => {
-                const uid = state.currentUser?.uid;
-                if (!uid) return;
+                const uid    = state.currentUser?.uid;
+                const loanId = btn.dataset.loanDelete;
+                const loan   = this._loans.find(l => l.id === loanId);
+                if (!uid || !loan) return;
+
+                const currentMonthKey = this.getSelectedMonth();
+                const isPaidThisMonth = (loan.paidMonths || []).includes(currentMonthKey);
+
                 ModalView.openConfirmModal({
-                    title: 'Apagar Empréstimo',
-                    message: 'Tens a certeza que desejas remover este registo?',
-                    confirmLabel: 'Sim, apagar',
-                    onConfirm: () => LoanModel.delete(uid, btn.dataset.loanDelete, this._activeSpaceId())
+                    title:        'Eliminar Empréstimo',
+                    message:      `Empréstimo de <strong>${loan.debtor}</strong>.<br><span class="text-xs text-slate-400">O que deseja eliminar?</span>`,
+                    confirmLabel: 'Só este mês (reverter pagamento)',
+                    confirmClass: isPaidThisMonth
+                        ? 'w-full py-4 bg-amber-500 text-white font-bold rounded-2xl transition hover:bg-amber-600'
+                        : 'w-full py-4 bg-slate-200 text-slate-400 font-bold rounded-2xl cursor-not-allowed',
+                    onConfirm: isPaidThisMonth
+                        ? () => LoanModel.togglePaidForMonth(uid, loanId, true, currentMonthKey, this._activeSpaceId())
+                        : null,
+                    extraButtons: [{
+                        label:     'Apagar empréstimo completo',
+                        className: 'w-full py-4 bg-rose-600 text-white font-bold rounded-2xl transition hover:bg-rose-700',
+                        onClick:   () => LoanModel.delete(uid, loanId, this._activeSpaceId())
+                    }]
                 });
             });
         });
