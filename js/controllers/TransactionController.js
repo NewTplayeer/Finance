@@ -2,7 +2,8 @@
  * TransactionController — gere o CRUD de transações, o dashboard e o processamento IA.
  * É o controller central da aplicação.
  */
-import { TransactionModel } from '../models/TransactionModel.js';
+import { TransactionModel }   from '../models/TransactionModel.js';
+import { SubscriptionModel }  from '../models/SubscriptionModel.js';
 import { AIService }         from '../services/AIService.js';
 import { StatementParser }   from '../services/StatementParser.js';
 import { DashboardView }     from '../views/DashboardView.js';
@@ -23,9 +24,11 @@ export class TransactionController {
 
     /** Inicializa todos os event listeners do controller */
     init() {
-        this._currentSort = 'newest';
-        this._page        = 1;
-        this._pageSize    = 20;
+        this._currentSort   = 'newest';
+        this._currentType   = 'all';   // 'all' | 'income' | 'expense' | 'pending'
+        this._searchQuery   = '';
+        this._page          = 1;
+        this._pageSize      = 20;
         this._bindManualForm();
         this._bindAIInput();
         this._bindImportModal();
@@ -34,6 +37,8 @@ export class TransactionController {
         this._bindInlineCategoryAdd();
         this._bindCategoriesManager();
         this._bindSortButtons();
+        this._bindFilterPanel();
+        this._bindSearchBar();
         this._bindPdfReport();
         this._bindAutocomplete();
         this._bindPagination();
@@ -199,9 +204,26 @@ export class TransactionController {
             finalBalance: income - instantExit - pending
         });
 
+        // ── Pesquisa + filtro de tipo ──────────────────────────────────────
+        const q = (this._searchQuery || '').toLowerCase().trim();
+        let displayed = filtered.filter(t => {
+            if (this._currentType === 'income')  return t.category === 'Receita';
+            if (this._currentType === 'expense') return t.category !== 'Receita';
+            if (this._currentType === 'pending') return !t.paid && t.category !== 'Receita';
+            return true;
+        });
+        if (q) {
+            displayed = displayed.filter(t =>
+                (t.description || '').toLowerCase().includes(q) ||
+                (t.category    || '').toLowerCase().includes(q) ||
+                (t.method      || '').toLowerCase().includes(q) ||
+                (t.place       || '').toLowerCase().includes(q)
+            );
+        }
+
         // ── Paginação ──────────────────────────────────────────────────────
         // Ordena primeiro para paginar correctamente
-        const sorted = [...filtered];
+        const sorted = [...displayed];
         const sort   = this._currentSort || 'newest';
         const getDate = (t) => t.date || (t.createdAt ? t.createdAt.slice(0, 10) : null) || (t.monthKey ? t.monthKey + '-01' : '1970-01-01');
         if      (sort === 'oldest')  sorted.sort((a, b) => getDate(a).localeCompare(getDate(b)));
@@ -348,15 +370,88 @@ export class TransactionController {
 
     /**
      * Abre o modal de confirmação para apagar uma transação.
+     * - Assinatura → "Só este" ou "Este e futuros (cancelar assinatura)"
+     * - Parcela    → "Só este" ou "Este e parcelas seguintes"
+     * - Normal     → confirmação simples
      * @param {string} id
      */
     confirmDelete(id) {
+        const t = state.transactions.find(tx => tx.id === id);
+
+        if (t?.subscriptionId) {
+            const desc = t.desc || 'esta assinatura';
+            ModalView.openConfirmModal({
+                title:        'Eliminar Lançamento',
+                message:      `Lançamento da assinatura <strong>${desc}</strong>.<br><span class="text-xs text-slate-400">O que deseja eliminar?</span>`,
+                confirmLabel: 'Só este lançamento',
+                confirmClass: 'w-full py-4 bg-amber-500 text-white font-bold rounded-2xl transition hover:bg-amber-600',
+                onConfirm:    () => this.delete(id),
+                extraButtons: [{
+                    label:     'Este e todos os futuros (cancelar assinatura)',
+                    className: 'w-full py-4 bg-rose-600 text-white font-bold rounded-2xl transition hover:bg-rose-700',
+                    onClick:   () => this._deleteThisAndFutureSubscription(t)
+                }]
+            });
+            return;
+        }
+
+        if (t?.installmentGroupId) {
+            const baseDesc = (t.desc || '').replace(/\s*\(\d+\/\d+\)$/, '');
+            ModalView.openConfirmModal({
+                title:        'Eliminar Parcela',
+                message:      `Parcela de <strong>${baseDesc}</strong>.<br><span class="text-xs text-slate-400">O que deseja eliminar?</span>`,
+                confirmLabel: 'Só esta parcela',
+                confirmClass: 'w-full py-4 bg-amber-500 text-white font-bold rounded-2xl transition hover:bg-amber-600',
+                onConfirm:    () => this.delete(id),
+                extraButtons: [{
+                    label:     'Esta e as parcelas seguintes',
+                    className: 'w-full py-4 bg-rose-600 text-white font-bold rounded-2xl transition hover:bg-rose-700',
+                    onClick:   () => this._deleteThisAndFutureInstallments(t)
+                }]
+            });
+            return;
+        }
+
         ModalView.openConfirmModal({
-            title: "Confirmar",
-            message: "Desejas apagar este registo?",
+            title:        "Confirmar",
+            message:      "Desejas apagar este registo?",
             confirmLabel: "Sim, eliminar",
-            onConfirm: () => this.delete(id)
+            onConfirm:    () => this.delete(id)
         });
+    }
+
+    /**
+     * Elimina este lançamento e todos os futuros da mesma assinatura,
+     * e cancela a assinatura para evitar nova propagação.
+     * @param {{ id, subscriptionId, monthKey }} t
+     */
+    async _deleteThisAndFutureSubscription(t) {
+        const uid = state.currentUser?.uid;
+        if (!uid) return;
+        const toDelete = state.transactions.filter(
+            tx => tx.subscriptionId === t.subscriptionId && tx.monthKey >= t.monthKey
+        );
+        for (const tx of toDelete) {
+            await TransactionModel.delete(uid, tx.id, this._activeSpaceId());
+        }
+        await SubscriptionModel.cancel(uid, t.subscriptionId, this._activeSpaceId());
+        ModalView.showToast('Lançamentos eliminados e assinatura cancelada.', 'success');
+    }
+
+    /**
+     * Elimina esta parcela e todas as parcelas seguintes do mesmo grupo.
+     * @param {{ id, installmentGroupId, monthKey }} t
+     */
+    async _deleteThisAndFutureInstallments(t) {
+        const uid = state.currentUser?.uid;
+        if (!uid) return;
+        const toDelete = state.transactions.filter(
+            tx => tx.installmentGroupId === t.installmentGroupId && tx.monthKey >= t.monthKey
+        );
+        for (const tx of toDelete) {
+            await TransactionModel.delete(uid, tx.id, this._activeSpaceId());
+        }
+        ModalView.showToast(`${toDelete.length} parcela(s) eliminada(s).`, 'success');
     }
 
     /**
@@ -703,26 +798,109 @@ export class TransactionController {
 
     /** Regista os listeners dos botões de ordenação do histórico */
     _bindSortButtons() {
-        const activeCls   = ['bg-indigo-600', 'text-white', 'shadow-sm'];
-        const inactiveCls = ['bg-slate-100',  'text-slate-500', 'hover:bg-slate-200'];
-
-        const syncStyles = () => {
-            document.querySelectorAll('.sort-btn').forEach(btn => {
-                const isActive = btn.dataset.sort === this._currentSort;
-                btn.classList.remove(...activeCls, ...inactiveCls);
-                btn.classList.add(...(isActive ? activeCls : inactiveCls));
-            });
-        };
-
-        syncStyles();
+        this._syncSortStyles();
 
         document.querySelectorAll('.sort-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this._currentSort = btn.dataset.sort;
                 this._page = 1;
-                syncStyles();
+                this._syncSortStyles();
                 this.refreshDashboard();
             });
+        });
+    }
+
+    _syncSortStyles() {
+        const activeCls   = ['bg-indigo-600', 'text-white', 'shadow-sm'];
+        const inactiveCls = ['bg-slate-100',  'text-slate-500', 'hover:bg-slate-200'];
+        document.querySelectorAll('.sort-btn').forEach(btn => {
+            const isActive = btn.dataset.sort === this._currentSort;
+            btn.classList.remove(...activeCls, ...inactiveCls);
+            btn.classList.add(...(isActive ? activeCls : inactiveCls));
+        });
+    }
+
+    /** Painel de filtros — toggle e botões de tipo */
+    _bindFilterPanel() {
+        const toggleBtn  = document.getElementById('btn-toggle-filters');
+        const panel      = document.getElementById('filter-panel');
+        const clearBtn   = document.getElementById('btn-clear-filters');
+        const badge      = document.getElementById('filter-badge');
+
+        const activeCls   = ['bg-indigo-600', 'text-white'];
+        const inactiveCls = ['bg-slate-100',  'text-slate-500', 'hover:bg-slate-200'];
+
+        const syncTypeBtns = () => {
+            document.querySelectorAll('.filter-type-btn').forEach(btn => {
+                const isActive = btn.dataset.filterType === this._currentType;
+                btn.classList.remove(...activeCls, ...inactiveCls);
+                btn.classList.add(...(isActive ? activeCls : inactiveCls));
+            });
+        };
+
+        const updateBadge = () => {
+            if (!badge) return;
+            let count = 0;
+            if (this._currentType !== 'all') count++;
+            if (this._searchQuery)           count++;
+            if (count > 0) {
+                badge.textContent = count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        };
+
+        syncTypeBtns();
+        updateBadge();
+
+        if (toggleBtn && panel) {
+            toggleBtn.addEventListener('click', () => {
+                panel.classList.toggle('hidden');
+                toggleBtn.classList.toggle('bg-indigo-50');
+                toggleBtn.classList.toggle('border-indigo-300');
+                toggleBtn.classList.toggle('text-indigo-600');
+            });
+        }
+
+        document.querySelectorAll('.filter-type-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._currentType = btn.dataset.filterType;
+                this._page = 1;
+                syncTypeBtns();
+                updateBadge();
+                this.refreshDashboard();
+            });
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this._currentType = 'all';
+                this._searchQuery = '';
+                this._currentSort = 'newest';
+                this._page = 1;
+                const searchEl = document.getElementById('history-search');
+                if (searchEl) searchEl.value = '';
+                syncTypeBtns();
+                this._syncSortStyles();
+                updateBadge();
+                this.refreshDashboard();
+            });
+        }
+    }
+
+    /** Barra de pesquisa do histórico */
+    _bindSearchBar() {
+        const el = document.getElementById('history-search');
+        if (!el) return;
+        let debounce;
+        el.addEventListener('input', () => {
+            clearTimeout(debounce);
+            debounce = setTimeout(() => {
+                this._searchQuery = el.value;
+                this._page = 1;
+                this.refreshDashboard();
+            }, 220);
         });
     }
 
