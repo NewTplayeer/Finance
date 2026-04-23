@@ -30,7 +30,7 @@ export const DEFAULT_CATEGORIES = [
 
 /** Formas de pagamento padrão (usadas nos selects de método) */
 export const DEFAULT_METHODS = [
-    'Dinheiro/Pix', 'Cartão Débito', 'Cartão', 'Boleto'
+    'Dinheiro/Pix', 'Cartão Débito', 'Cartão Crédito', 'Boleto'
 ];
 
 /**

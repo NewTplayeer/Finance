@@ -204,8 +204,10 @@ export class LoanController {
         const currentMonthKey = this.getSelectedMonth();
 
         const pending      = this._loans.filter(l => !(l.paidMonths || []).includes(currentMonthKey));
-        const totalPending = pending.reduce((s, l) =>
-            s + LoanModel.calcTotal(l.amount, l.interestRate, l.startDate, l.dueDate), 0);
+        const totalPending = pending.reduce((s, l) => {
+            const t = LoanModel.calcTotal(l.amount, l.interestRate, l.startDate, l.dueDate);
+            return s + t / (l.installments || 1);
+        }, 0);
 
         const summary = pending.length
             ? `<div class="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 mb-4 flex justify-between items-center">
@@ -278,13 +280,14 @@ export class LoanController {
                 if (!isPaidMonth && payType === 'Crédito') {
                     const loan = this._loans.find(l => l.id === loanId);
                     if (loan) {
-                        const total = LoanModel.calcTotal(loan.amount, loan.interestRate, loan.startDate, loan.dueDate);
+                        const total        = LoanModel.calcTotal(loan.amount, loan.interestRate, loan.startDate, loan.dueDate);
+                        const installValue = total / (loan.installments || 1);
                         await TransactionModel.add(uid, {
-                            desc: `Quitação (Crédito) — ${loan.debtor}`, amount: total,
+                            desc: `Parcela (Crédito) — ${loan.debtor}`, amount: installValue,
                             category: 'Receita', method: loan.method || 'Transferência',
                             bank: '', dateKey: monthKey, date: DateUtils.today(), loanId
                         }, this._activeSpaceId());
-                        ModalView.showToast(`Receita de ${fmt(total)} lançada automaticamente.`, 'success');
+                        ModalView.showToast(`Receita de ${fmt(installValue)} lançada automaticamente.`, 'success');
                     }
                 }
             });

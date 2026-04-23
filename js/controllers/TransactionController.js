@@ -325,7 +325,7 @@ export class TransactionController {
         const bar = document.getElementById('pagination-bar');
         if (!bar) return;
 
-        if (totalItems <= this._pageSize && this._pageSize !== 10) {
+        if (totalItems === 0) {
             bar.classList.add('hidden');
             return;
         }
@@ -334,12 +334,16 @@ export class TransactionController {
         const info  = document.getElementById('pagination-info');
         const prevs = bar.querySelectorAll('[data-page-prev]');
         const nexts = bar.querySelectorAll('[data-page-next]');
+        const nav   = bar.querySelector('.pagination-nav');
         const start = (this._page - 1) * this._pageSize + 1;
         const end   = Math.min(this._page * this._pageSize, totalItems);
 
         if (info) info.textContent = `${start}–${end} de ${totalItems}`;
-        prevs.forEach(b => b.disabled = this._page <= 1);
-        nexts.forEach(b => b.disabled = this._page >= totalPages);
+
+        const multiPage = totalPages > 1;
+        prevs.forEach(b => { b.disabled = this._page <= 1; b.classList.toggle('invisible', !multiPage); });
+        nexts.forEach(b => { b.disabled = this._page >= totalPages; b.classList.toggle('invisible', !multiPage); });
+        if (info) info.classList.toggle('invisible', !multiPage);
     }
 
     /** Actualiza o select de clientes no formulário manual */
