@@ -391,9 +391,17 @@
                     <!-- COFRINHOS -->
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
                         <div class="flex items-center justify-between mb-5">
-                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Cofrinhos</h3>
+                            <div class="flex items-center gap-2">
+                                <button id="btn-toggle-savings" class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-600 transition" aria-label="Expandir/Recolher">
+                                    <svg id="arrow-savings" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 transition-transform duration-200">
+                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
+                                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Cofrinhos</h3>
+                            </div>
                             <button id="btn-open-savings-form" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition">+ Novo</button>
                         </div>
+                        <div id="savings-collapse">
                         <!-- Formulário de novo cofrinho (oculto por defeito) -->
                         <div id="savings-form" class="hidden bg-slate-50 rounded-2xl p-4 mb-4 space-y-3">
                             <input type="text" id="savings-name" placeholder="Nome do cofrinho (ex: Viagem)" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
@@ -408,14 +416,23 @@
                             </div>
                         </div>
                         <div id="savings-list"></div>
+                        </div>
                     </div>
 
                     <!-- ASSINATURAS RECORRENTES -->
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
                         <div class="flex items-center justify-between mb-5">
-                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Assinaturas</h3>
+                            <div class="flex items-center gap-2">
+                                <button id="btn-toggle-subs" class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-600 transition" aria-label="Expandir/Recolher">
+                                    <svg id="arrow-subs" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 transition-transform duration-200">
+                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
+                                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Assinaturas</h3>
+                            </div>
                             <button id="btn-open-sub-form" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition">+ Nova</button>
                         </div>
+                        <div id="subs-collapse">
                         <div id="sub-form" class="hidden bg-slate-50 rounded-2xl p-4 mb-4 space-y-3">
                             <input type="text" id="sub-desc" placeholder="Descrição (ex: Netflix, Spotify)" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
                             <div class="grid grid-cols-2 gap-2">
@@ -444,14 +461,23 @@
                             </div>
                         </div>
                         <div id="subscriptions-list"></div>
+                        </div>
                     </div>
 
                     <!-- EMPRÉSTIMOS -->
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Empréstimos</h3>
+                            <div class="flex items-center gap-2">
+                                <button id="btn-toggle-loans" class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-600 transition" aria-label="Expandir/Recolher">
+                                    <svg id="arrow-loans" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 transition-transform duration-200">
+                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
+                                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Empréstimos</h3>
+                            </div>
                             <button id="btn-open-loan-form" class="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-xl hover:bg-amber-600 transition">+ Novo</button>
                         </div>
+                        <div id="loans-collapse">
                         <!-- Formulário de novo empréstimo -->
                         <div id="loan-form" class="hidden bg-slate-50 rounded-2xl p-4 mb-4 space-y-3">
                             <input type="text" id="loan-debtor" placeholder="Nome do devedor / credor *" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-300">
@@ -506,6 +532,7 @@
                             </div>
                         </div>
                         <div id="loans-list"></div>
+                        </div>
                     </div>
 
                 </div>
@@ -1198,12 +1225,40 @@
                             class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
                         <button id="btn-add-method" class="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition shrink-0">+ Método</button>
                     </div>
-                    <p class="text-[10px] text-slate-400 mt-2">Padrão: Dinheiro/Pix, Cartão Débito, Cartão, Boleto</p>
+                    <p class="text-[10px] text-slate-400 mt-2">Padrão: Dinheiro/Pix, Cartão Débito, Cartão Crédito, Boleto</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script type="module" src="js/app.js?v=21"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const sections = [
+            { btn: 'btn-toggle-savings', collapse: 'savings-collapse', arrow: 'arrow-savings', key: 'nt_collapse_savings' },
+            { btn: 'btn-toggle-subs',    collapse: 'subs-collapse',    arrow: 'arrow-subs',    key: 'nt_collapse_subs'    },
+            { btn: 'btn-toggle-loans',   collapse: 'loans-collapse',   arrow: 'arrow-loans',   key: 'nt_collapse_loans'   },
+        ];
+        sections.forEach(({ btn, collapse, arrow, key }) => {
+            const btnEl      = document.getElementById(btn);
+            const collapseEl = document.getElementById(collapse);
+            const arrowEl    = document.getElementById(arrow);
+            if (!btnEl || !collapseEl) return;
+
+            const apply = (collapsed) => {
+                collapseEl.classList.toggle('hidden', collapsed);
+                arrowEl?.classList.toggle('-rotate-90', collapsed);
+            };
+
+            apply(localStorage.getItem(key) === 'true');
+
+            btnEl.addEventListener('click', () => {
+                const nowCollapsed = !collapseEl.classList.contains('hidden');
+                apply(nowCollapsed);
+                localStorage.setItem(key, nowCollapsed);
+            });
+        });
+    });
+    </script>
 </body>
 </html>

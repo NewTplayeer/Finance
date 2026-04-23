@@ -34,7 +34,7 @@ const CAT_MAP = {
  */
 const METHOD_MAP = {
     'DEBIT':  'Cartão Débito',
-    'CREDIT': 'Cartão',
+    'CREDIT': 'Cartão Crédito',
     'PIX':    'Dinheiro/Pix',
     'TED':    'Dinheiro/Pix',
     'DOC':    'Dinheiro/Pix',
