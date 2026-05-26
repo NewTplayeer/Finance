@@ -46,14 +46,15 @@ REGRAS:
 
 Texto: "${text}"`;
 
-        if (!geminiConfig.apiKey || geminiConfig.apiKey === 'AIzaSyDrqiGccJlt5bjVC9vIkl2IducGQa8RSMY') {
+        if (!geminiConfig.apiKey) {
             if (onEnd) onEnd();
             const err = Object.assign(new Error('Chave da API Gemini não configurada.'), { code: 'NO_KEY' });
             if (onError) onError(err);
             return;
         }
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
+        const modelName = geminiConfig.model || 'gemini-1.5-flash';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiConfig.apiKey}`;
 
         try {
             let response;

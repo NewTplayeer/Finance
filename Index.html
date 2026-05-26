@@ -260,42 +260,106 @@
                         </div>
                     </div>
 
-                    <!-- FORMULÁRIO MANUAL -->
-                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
-                        <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-[0.2em]">Entrada Manual</h3>
-                        <form id="finance-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <!-- Campo de descrição com autocomplete -->
-                            <div class="relative">
-                                <input type="text" id="desc" placeholder="Descrição do item" autocomplete="off"
-                                    class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
-                                <div id="desc-autocomplete" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-slate-50"></div>
+                    <!-- FORMULÁRIO MANUAL (colapsável) -->
+                    <div class="bg-white rounded-[2.5rem] border border-slate-200 card-shadow dark-card overflow-hidden">
+                        <!-- Cabeçalho sempre visível -->
+                        <div class="flex items-center justify-between px-8 py-5">
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Entrada Manual</span>
                             </div>
-                            <input type="number" step="0.01" min="0.01" id="amount" placeholder="Valor (R$)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
-                            <input type="text" id="bank-input" placeholder="Banco (Ex: Nubank)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                            <input type="text" id="place-input" placeholder="Local / Estabelecimento (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 sm:col-span-2">
-                            <!-- Categoria + botão de gerir categorias -->
-                            <div class="flex gap-2">
-                                <select id="category" class="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none min-w-0"></select>
-                                <button type="button" id="btn-new-category-inline" title="Gerir categorias &amp; métodos"
-                                    class="shrink-0 w-12 bg-slate-50 border border-slate-200 rounded-2xl text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition font-bold text-xl leading-none">⚙</button>
-                            </div>
-                            <select id="method" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none">
-                                <option value="Dinheiro/Pix">Dinheiro/Pix</option>
-                                <option value="Cartão Débito">Cartão Débito</option>
-                                <option value="Cartão">Cartão Crédito</option>
-                                <option value="Boleto">Boleto</option>
-                            </select>
-                            <input type="number" id="installments" min="1" max="48" placeholder="Parcelas (1)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                            <select id="client-id-select" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none sm:col-span-2">
-                                <option value="">Sem cliente vinculado</option>
-                            </select>
-                            <div>
-                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Data do registo</label>
-                                <input type="date" id="transaction-date" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                            </div>
-                            <button type="submit" class="bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition active:scale-95 shadow-xl sm:col-span-2">Guardar</button>
-                        </form>
+                            <button id="btn-toggle-manual-form"
+                                class="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition active:scale-95 shadow-md shadow-indigo-200">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Nova Transação
+                            </button>
+                        </div>
+
+                        <!-- Corpo colapsável (oculto por defeito) -->
+                        <div id="manual-form-collapse" class="hidden border-t border-slate-100 px-8 pb-8 pt-6">
+                            <form id="finance-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- Campo de descrição com autocomplete -->
+                                <div class="relative">
+                                    <input type="text" id="desc" placeholder="Descrição do item" autocomplete="off"
+                                        class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
+                                    <div id="desc-autocomplete" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-slate-50"></div>
+                                </div>
+                                <input type="number" step="0.01" min="0.01" id="amount" placeholder="Valor (R$)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300" required>
+                                <input type="text" id="bank-input" placeholder="Banco (Ex: Nubank)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                                <input type="text" id="place-input" placeholder="Local / Estabelecimento (opcional)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 sm:col-span-2">
+                                <!-- Categoria + botão de gerir categorias -->
+                                <div class="flex gap-2">
+                                    <select id="category" class="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none min-w-0"></select>
+                                    <button type="button" id="btn-new-category-inline" title="Gerir categorias &amp; métodos"
+                                        class="shrink-0 w-12 bg-slate-50 border border-slate-200 rounded-2xl text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition font-bold text-xl leading-none">⚙</button>
+                                </div>
+                                <select id="method" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none">
+                                    <option value="Dinheiro/Pix">Dinheiro/Pix</option>
+                                    <option value="Cartão Débito">Cartão Débito</option>
+                                    <option value="Cartão">Cartão Crédito</option>
+                                    <option value="Boleto">Boleto</option>
+                                </select>
+                                <input type="number" id="installments" min="1" max="48" placeholder="Parcelas (1)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                                <select id="client-id-select" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer outline-none sm:col-span-2">
+                                    <option value="">Sem cliente vinculado</option>
+                                </select>
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Data do registo</label>
+                                    <input type="date" id="transaction-date" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                                </div>
+                                <button type="submit" class="bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition active:scale-95 shadow-xl">Guardar</button>
+                                <button type="button" id="btn-cancel-manual-form"
+                                    class="py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl hover:bg-slate-200 transition active:scale-95">Cancelar</button>
+                            </form>
+                        </div>
                     </div>
+                    <script>
+                    (function () {
+                        const btn      = document.getElementById('btn-toggle-manual-form');
+                        const collapse = document.getElementById('manual-form-collapse');
+                        const cancel   = document.getElementById('btn-cancel-manual-form');
+                        const form     = document.getElementById('finance-form');
+
+                        const openSVG  = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>';
+                        const closeSVG = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>';
+
+                        window.openManualForm = function () {
+                            collapse.classList.remove('hidden');
+                            btn.innerHTML = closeSVG + ' Fechar';
+                            btn.classList.replace('bg-indigo-600', 'bg-slate-200');
+                            btn.classList.replace('hover:bg-indigo-700', 'hover:bg-slate-300');
+                            btn.classList.replace('text-white', 'text-slate-700');
+                            btn.classList.remove('shadow-indigo-200');
+                            setTimeout(() => document.getElementById('desc')?.focus(), 80);
+                        };
+
+                        window.closeManualForm = function () {
+                            collapse.classList.add('hidden');
+                            btn.innerHTML = openSVG + ' Nova Transação';
+                            btn.classList.replace('bg-slate-200', 'bg-indigo-600');
+                            btn.classList.replace('hover:bg-slate-300', 'hover:bg-indigo-700');
+                            btn.classList.replace('text-slate-700', 'text-white');
+                            btn.classList.add('shadow-indigo-200');
+                        };
+
+                        btn?.addEventListener('click', function () {
+                            collapse.classList.contains('hidden') ? openManualForm() : closeManualForm();
+                        });
+
+                        cancel?.addEventListener('click', function () {
+                            form?.reset();
+                            closeManualForm();
+                        });
+
+                        // Fecha e reseta após guardar com sucesso (detecta reset do controller)
+                        const origReset = HTMLFormElement.prototype.reset;
+                        HTMLFormElement.prototype.reset = function () {
+                            origReset.call(this);
+                            if (this.id === 'finance-form') closeManualForm();
+                        };
+                    })();
+                    </script>
 
                     <!-- HISTÓRICO -->
                     <div class="bg-white rounded-[2.5rem] border border-slate-200 card-shadow overflow-hidden dark-card">
@@ -671,9 +735,9 @@
         <!-- SECÇÃO DE ANÁLISE -->
         <section id="analytics-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-            <!-- Stats globais -->
+            <!-- Stats globais + Score -->
             <div class="mb-8">
-                <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Resumo Global (Todos os Meses)</h2>
+                <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Resumo Global · Todos os Meses</h2>
                 <div id="analytics-global-stats">
                     <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
                 </div>
@@ -681,29 +745,56 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                <!-- Coluna principal -->
+                <!-- Coluna principal (2/3) -->
                 <div class="lg:col-span-2 space-y-8">
 
-                    <!-- Tendência mensal -->
+                    <!-- Tendência mensal: Bar + Line Chart -->
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
                         <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-5">Tendência Mensal (últimos 12 meses)</h3>
-                        <div id="analytics-monthly-trend">
+                        <div id="analytics-monthly-trend" style="position:relative;height:280px">
                             <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
                         </div>
                     </div>
 
-                    <!-- Despesas por categoria -->
+                    <!-- Evolução do Saldo: Area Chart -->
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
-                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-5">Despesas por Categoria (total acumulado)</h3>
-                        <div id="analytics-categories">
-                            <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-5">Evolução do Saldo Acumulado</h3>
+                        <div style="position:relative;height:220px">
+                            <canvas id="analytics-balance-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Gastos por Dia da Semana: Bar Chart -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-5">Gastos por Dia da Semana</h3>
+                        <div style="position:relative;height:200px">
+                            <canvas id="analytics-weekday-chart"></canvas>
                         </div>
                     </div>
 
                 </div>
 
-                <!-- Coluna lateral -->
+                <!-- Coluna lateral (1/3) -->
                 <div class="space-y-8">
+
+                    <!-- Despesas por Categoria: Doughnut + Barras -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Despesas por Categoria</h3>
+                        <div style="position:relative;height:200px;margin-bottom:16px">
+                            <canvas id="analytics-category-chart"></canvas>
+                        </div>
+                        <div id="analytics-categories">
+                            <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
+                        </div>
+                    </div>
+
+                    <!-- Top Estabelecimentos -->
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Top Estabelecimentos</h3>
+                        <div id="analytics-top-places">
+                            <p class="text-xs text-slate-400 italic text-center py-4">A carregar...</p>
+                        </div>
+                    </div>
 
                     <!-- Cofrinhos -->
                     <div class="bg-white p-8 rounded-[2.5rem] border border-slate-200 card-shadow dark-card">
