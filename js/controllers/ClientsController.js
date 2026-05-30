@@ -71,6 +71,11 @@ export class ClientsController {
         const result = validateDoc(rawDoc);
         if (!result.valid) return ModalView.showToast("CPF ou CNPJ inválido. Verifica o número.", 'error');
 
+        if (email) {
+            const dupEmail = state.clients.find(c => c.email?.toLowerCase() === email.toLowerCase() && c.id !== state.editingClientId);
+            if (dupEmail) return ModalView.showToast(`E-mail já cadastrado para: ${dupEmail.name}`, 'error');
+        }
+
         await ClientModel.update(state.currentUser.uid, state.editingClientId, {
             name, doc: result.digits, docType: result.type,
             docFormatted: formatDoc(result.digits, result.type),
@@ -130,6 +135,11 @@ export class ClientsController {
 
             const dup = state.clients.find(c => c.doc === result.digits);
             if (dup) return ModalView.showToast(`Documento já cadastrado para: ${dup.name}`);
+
+            if (email) {
+                const dupEmail = state.clients.find(c => c.email?.toLowerCase() === email.toLowerCase());
+                if (dupEmail) return ModalView.showToast(`E-mail já cadastrado para: ${dupEmail.name}`, 'error');
+            }
 
             await ClientModel.add(state.currentUser.uid, {
                 name, doc: result.digits, docType: result.type,

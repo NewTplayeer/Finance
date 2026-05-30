@@ -5,7 +5,7 @@
  * Endpoint: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
  * Documentação: https://ai.google.dev/api/generate-content
  */
-import { geminiConfig } from '../config.js?v=2';
+import { geminiConfig } from '../config.js';
 
 export const AIService = {
     /**

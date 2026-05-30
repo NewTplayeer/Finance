@@ -16,6 +16,7 @@ import { LoanController }         from './controllers/LoanController.js';
 import { SubscriptionController } from './controllers/SubscriptionController.js';
 import { AnalyticsController }    from './controllers/AnalyticsController.js';
 import { AdminController }        from './controllers/AdminController.js';
+import { AICommandService }       from './services/AICommandService.js';
 
 /** Controller de assinaturas recorrentes */
 const subscriptionController = new SubscriptionController();
@@ -150,6 +151,17 @@ window.addEventListener('DOMContentLoaded', () => {
     // Inicializar controllers
     navController.init();
     transactionController.init();
+
+    // Substitui o handler do botão IA pelo dispatcher centralizado (todos os tipos de registo)
+    const aiSubmitBtn = document.getElementById('ai-submit');
+    if (aiSubmitBtn) {
+        aiSubmitBtn.onclick = async () => {
+            const inputEl = document.getElementById('ai-input');
+            const text = inputEl?.value?.trim();
+            if (!text) return;
+            await AICommandService.handle(text, navController.getSelectedMonth());
+        };
+    }
     clientsController.init();
     sharingController.init();
     openFinanceController.init();

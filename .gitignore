@@ -1,0 +1,25 @@
+# Logs
+logs
+*.log
+
+# Dependências
+node_modules/
+
+# Firebase cache
+.firebase/
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.*.local
+
+# Ficheiros com chaves de API e credenciais sigilosas
+js/config.js
+*.pem
+*.key
+*.p12
+*.pfx
+*-service-account*.json
+*-firebase-adminsdk*.json
+service-account.json
+credentials.json
