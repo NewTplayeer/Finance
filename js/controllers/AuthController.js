@@ -16,7 +16,11 @@ import {
     getRedirectResult,
     sendPasswordResetEmail,
     setPersistence,
-    browserLocalPersistence
+    browserLocalPersistence,
+    updateEmail,
+    updatePassword,
+    reauthenticateWithCredential,
+    EmailAuthProvider
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { UserModel } from '../models/UserModel.js';
 import { AdminModel } from '../models/AdminModel.js';
@@ -24,6 +28,7 @@ import { LogModel } from '../models/LogModel.js';
 import { state } from '../state.js';
 import { ModalView } from '../views/ModalView.js';
 import { ExportUtils } from '../utils/ExportUtils.js';
+import { validateDoc, validateEmail, validatePhone, validateBirthdate } from '../services/validators.js';
 
 /** Formata input de CPF enquanto o utilizador digita: 000.000.000-00 */
 const maskCpf = (v) => v.replace(/\D/g, '').slice(0, 11)
@@ -77,6 +82,7 @@ export class AuthController {
             }
         } catch (_) {}
 
+        this._setupBirthdateLimits();
         this._bindAuthForm();
         this._bindGoogleLogin();
         this._bindForgotPassword();
@@ -119,6 +125,38 @@ export class AuthController {
         });
     }
 
+    /** Marca ou remove o indicador visual de erro num campo */
+    _toggleFieldError(id, isValid) {
+        document.getElementById(id)?.classList.toggle('input-error', !isValid);
+    }
+
+    /** Liga validação em tempo real (no blur, e durante input se já estiver inválido) a um campo */
+    _bindFieldValidation(id, validatorFn) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const check = () => this._toggleFieldError(id, validatorFn(el.value));
+        el.addEventListener('blur', check);
+        el.addEventListener('input', () => { if (el.classList.contains('input-error')) check(); });
+    }
+
+    /** Liga máscara de input + validação em tempo real a um campo (ex: CPF, telefone) */
+    _bindMaskAndValidation(id, maskFn, validatorFn) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+            e.target.value = maskFn(e.target.value);
+            if (el.classList.contains('input-error')) this._toggleFieldError(id, validatorFn(el.value));
+        });
+        el.addEventListener('blur', () => this._toggleFieldError(id, validatorFn(el.value)));
+    }
+
+    /** Limita os campos de data de nascimento até à data de hoje */
+    _setupBirthdateLimits() {
+        const today = new Date().toISOString().slice(0, 10);
+        document.getElementById('auth-birthdate')?.setAttribute('max', today);
+        document.getElementById('profile-birthdate-input')?.setAttribute('max', today);
+    }
+
     /** Regista os listeners do formulário de login/registo */
     _bindAuthForm() {
         let authMode = 'login';
@@ -127,13 +165,12 @@ export class AuthController {
         const nameGroup = document.getElementById('register-name-group');
         const lgpdGroup = document.getElementById('register-lgpd-group');
 
-        // Máscaras de CPF e telefone
-        document.getElementById('auth-cpf')?.addEventListener('input', (e) => {
-            e.target.value = maskCpf(e.target.value);
-        });
-        document.getElementById('auth-phone')?.addEventListener('input', (e) => {
-            e.target.value = maskPhone(e.target.value);
-        });
+        // Máscaras de CPF e telefone + validação em tempo real
+        this._bindMaskAndValidation('auth-cpf', maskCpf, v => !!v.trim() && validateDoc(v).valid);
+        this._bindMaskAndValidation('auth-phone', maskPhone, v => !v.trim() || validatePhone(v));
+        this._bindFieldValidation('auth-birthdate', v => !!v && validateBirthdate(v));
+        this._bindFieldValidation('auth-email', v => !v.trim() || validateEmail(v.trim()));
+        this._bindFieldValidation('auth-password', v => !v || v.length >= 6);
 
         // Botão "Ver Termos" abre modal com termos completos
         document.getElementById('btn-open-terms')?.addEventListener('click', () => {
@@ -178,8 +215,44 @@ export class AuthController {
                 if (!email || !password) {
                     return ModalView.showToast('Por favor, preenche o e-mail e a palavra-passe.');
                 }
+                if (!validateEmail(email)) {
+                    this._toggleFieldError('auth-email', false);
+                    return ModalView.showToast('Indica um e-mail válido.', 'error');
+                }
+
+                let cpf = '', phone = '', birthdate = '';
                 if (authMode === 'register') {
                     if (!name) return ModalView.showToast('Por favor, indica o teu nome.');
+                    if (password.length < 6) {
+                        this._toggleFieldError('auth-password', false);
+                        return ModalView.showToast('A palavra-passe deve ter pelo menos 6 caracteres.', 'error');
+                    }
+
+                    cpf       = document.getElementById('auth-cpf')?.value?.trim() || '';
+                    phone     = document.getElementById('auth-phone')?.value?.trim() || '';
+                    birthdate = document.getElementById('auth-birthdate')?.value || '';
+
+                    if (!cpf) {
+                        this._toggleFieldError('auth-cpf', false);
+                        return ModalView.showToast('O CPF é obrigatório.', 'error');
+                    }
+                    if (!validateDoc(cpf).valid) {
+                        this._toggleFieldError('auth-cpf', false);
+                        return ModalView.showToast('CPF inválido. Verifica os dígitos.', 'error');
+                    }
+                    if (phone && !validatePhone(phone)) {
+                        this._toggleFieldError('auth-phone', false);
+                        return ModalView.showToast('Telefone inválido. Indica o DDD + número.', 'error');
+                    }
+                    if (!birthdate) {
+                        this._toggleFieldError('auth-birthdate', false);
+                        return ModalView.showToast('A data de nascimento é obrigatória.', 'error');
+                    }
+                    if (!validateBirthdate(birthdate)) {
+                        this._toggleFieldError('auth-birthdate', false);
+                        return ModalView.showToast('Data de nascimento inválida.', 'error');
+                    }
+
                     const lgpdChk = document.getElementById('lgpd-consent-check');
                     if (lgpdChk && !lgpdChk.checked) {
                         return ModalView.showToast('Aceita os termos de privacidade (LGPD) para continuar.', 'error');
@@ -194,10 +267,6 @@ export class AuthController {
                     if (authMode === 'login') {
                         await signInWithEmailAndPassword(auth, email, password);
                     } else {
-                        const cpf       = document.getElementById('auth-cpf')?.value?.trim() || '';
-                        const phone     = document.getElementById('auth-phone')?.value?.trim() || '';
-                        const birthdate = document.getElementById('auth-birthdate')?.value || '';
-
                         const cred = await createUserWithEmailAndPassword(auth, email, password);
                         this._skipNextLoginLog = true;
                         await UserModel.savePrefs(cred.user.uid, {
@@ -347,6 +416,13 @@ export class AuthController {
 
         const exportBtn = document.getElementById('btn-export-json');
         if (exportBtn) exportBtn.onclick = () => ExportUtils.exportDatabaseToJson();
+
+        // Máscaras de CPF e telefone + validação em tempo real
+        this._bindMaskAndValidation('profile-cpf-input', maskCpf, v => !!v.trim() && validateDoc(v).valid);
+        this._bindMaskAndValidation('profile-phone-input', maskPhone, v => !v.trim() || validatePhone(v));
+        this._bindFieldValidation('profile-birthdate-input', v => !!v && validateBirthdate(v));
+        this._bindFieldValidation('profile-email-input', v => !v.trim() || validateEmail(v.trim()));
+        this._bindFieldValidation('profile-newpass-input', v => !v || v.length >= 6);
     }
 
     /**
@@ -372,6 +448,9 @@ export class AuthController {
             const prefs = await UserModel.getPrefs(uid);
             this._profilePassword  = prefs?.appPassword      || '';
             this._profileName      = prefs?.userName         || '';
+            this._profileCpf       = prefs?.cpf              || '';
+            this._profilePhone     = prefs?.phone            || '';
+            this._profileBirthdate = prefs?.birthdate         || '';
             state.sharedSpaceId      = prefs?.sharedSpaceId      || null;
             state.budgets            = prefs?.budgets            || {};
             state.customCategories   = prefs?.customCategories   || [];
@@ -427,10 +506,28 @@ export class AuthController {
 
     /** Abre o modal de perfil e preenche todos os campos com os dados actuais */
     openProfileModal() {
-        const nameEl = document.getElementById('profile-name-input');
-        const passEl = document.getElementById('profile-pass-input');
-        if (nameEl) nameEl.value = this._profileName || '';
-        if (passEl) passEl.value = this._profilePassword || '';
+        const nameEl     = document.getElementById('profile-name-input');
+        const passEl     = document.getElementById('profile-pass-input');
+        const cpfEl      = document.getElementById('profile-cpf-input');
+        const phoneEl    = document.getElementById('profile-phone-input');
+        const bdateEl    = document.getElementById('profile-birthdate-input');
+        const emailEl    = document.getElementById('profile-email-input');
+        const newPassEl  = document.getElementById('profile-newpass-input');
+        const currPassEl = document.getElementById('profile-currentpass-input');
+
+        if (nameEl)     nameEl.value     = this._profileName || '';
+        if (passEl)     passEl.value     = this._profilePassword || '';
+        if (cpfEl)      cpfEl.value      = this._profileCpf || '';
+        if (phoneEl)    phoneEl.value    = this._profilePhone || '';
+        if (bdateEl)    bdateEl.value    = this._profileBirthdate || '';
+        if (emailEl)    emailEl.value    = state.currentUser?.email || '';
+        if (newPassEl)  newPassEl.value  = '';
+        if (currPassEl) currPassEl.value = '';
+
+        // Remove indicadores de erro de uma sessão anterior
+        ['profile-cpf-input', 'profile-phone-input', 'profile-birthdate-input',
+         'profile-email-input', 'profile-newpass-input', 'profile-currentpass-input']
+            .forEach(id => this._toggleFieldError(id, true));
 
         this._updateSharedSpaceUI();
         this._renderBudgetGoals();
@@ -473,12 +570,83 @@ export class AuthController {
         }
     }
 
-    /** Guarda as alterações do perfil no Firestore */
+    /** Guarda as alterações do perfil no Firestore (e e-mail/senha no Firebase Auth) */
     async saveProfile() {
-        if (!state.currentUser) return;
+        const user = state.currentUser;
+        if (!user) return;
 
-        const name = document.getElementById('profile-name-input')?.value?.trim() || this._profileName || 'Utilizador';
-        const pin  = document.getElementById('profile-pass-input')?.value?.trim() || '';
+        const name      = document.getElementById('profile-name-input')?.value?.trim() || this._profileName || 'Utilizador';
+        const pin       = document.getElementById('profile-pass-input')?.value?.trim() || '';
+        const cpf       = document.getElementById('profile-cpf-input')?.value?.trim() || '';
+        const phone     = document.getElementById('profile-phone-input')?.value?.trim() || '';
+        const birthdate = document.getElementById('profile-birthdate-input')?.value || '';
+        const email     = document.getElementById('profile-email-input')?.value?.trim() || '';
+        const newPass   = document.getElementById('profile-newpass-input')?.value?.trim() || '';
+        const currPass  = document.getElementById('profile-currentpass-input')?.value?.trim() || '';
+
+        // ── Validações ──
+        if (!name) return ModalView.showToast('O nome não pode estar vazio.', 'error');
+        if (!cpf) {
+            this._toggleFieldError('profile-cpf-input', false);
+            return ModalView.showToast('O CPF é obrigatório.', 'error');
+        }
+        if (!validateDoc(cpf).valid) {
+            this._toggleFieldError('profile-cpf-input', false);
+            return ModalView.showToast('CPF inválido. Verifica os dígitos.', 'error');
+        }
+        if (phone && !validatePhone(phone)) {
+            this._toggleFieldError('profile-phone-input', false);
+            return ModalView.showToast('Telefone inválido. Indica o DDD + número.', 'error');
+        }
+        if (!birthdate) {
+            this._toggleFieldError('profile-birthdate-input', false);
+            return ModalView.showToast('A data de nascimento é obrigatória.', 'error');
+        }
+        if (!validateBirthdate(birthdate)) {
+            this._toggleFieldError('profile-birthdate-input', false);
+            return ModalView.showToast('Data de nascimento inválida.', 'error');
+        }
+        if (!email || !validateEmail(email)) {
+            this._toggleFieldError('profile-email-input', false);
+            return ModalView.showToast('Indica um e-mail válido.', 'error');
+        }
+        if (newPass && newPass.length < 6) {
+            this._toggleFieldError('profile-newpass-input', false);
+            return ModalView.showToast('A nova palavra-passe deve ter pelo menos 6 caracteres.', 'error');
+        }
+
+        // ── Alterações sensíveis (e-mail / palavra-passe) exigem reautenticação ──
+        const emailChanged    = email !== (user.email || '');
+        const passwordProvider = user.providerData?.some(p => p.providerId === 'password');
+
+        if (emailChanged || newPass) {
+            if (!passwordProvider) {
+                return ModalView.showToast('Esta conta usa login Google. Não é possível alterar e-mail/senha aqui.', 'error');
+            }
+            if (!currPass) {
+                this._toggleFieldError('profile-currentpass-input', false);
+                return ModalView.showToast('Indica a palavra-passe atual para alterar e-mail ou senha.', 'error');
+            }
+            try {
+                const credential = EmailAuthProvider.credential(user.email, currPass);
+                await reauthenticateWithCredential(user, credential);
+            } catch (_) {
+                this._toggleFieldError('profile-currentpass-input', false);
+                return ModalView.showToast('Palavra-passe atual incorreta.', 'error');
+            }
+            try {
+                if (emailChanged) await updateEmail(user, email);
+                if (newPass)      await updatePassword(user, newPass);
+            } catch (err) {
+                const msgs = {
+                    'auth/email-already-in-use' : 'Este e-mail já está em uso por outra conta.',
+                    'auth/invalid-email'        : 'E-mail inválido.',
+                    'auth/requires-recent-login': 'Por segurança, sai e entra novamente antes de alterar estes dados.',
+                    'auth/weak-password'        : 'A nova palavra-passe é demasiado fraca.'
+                };
+                return ModalView.showToast(msgs[err.code] || 'Erro: ' + (err.code || err.message), 'error');
+            }
+        }
 
         // Lê edições inline das metas (inputs com data-budget-edit)
         document.querySelectorAll('[data-budget-edit]').forEach(inp => {
@@ -488,19 +656,35 @@ export class AuthController {
             else delete state.budgets[cat];
         });
 
-        await UserModel.savePrefs(state.currentUser.uid, {
+        await UserModel.savePrefs(user.uid, {
             userName:          name,
             appPassword:       pin,
+            cpf,
+            phone,
+            birthdate,
             budgets:           state.budgets,
             customCategories:  state.customCategories,
             customMethods:     state.customMethods,
             customMethodsOrder: state.customMethodsOrder
         });
 
-        this._profilePassword = pin;
-        this._profileName     = name;
-        state.userName        = name;
+        // Actualiza o registo de admin com os dados mais recentes
+        try { await AdminModel.saveUser(user.uid, { name, email, cpf }); } catch (_) {}
+
+        this._profilePassword  = pin;
+        this._profileName      = name;
+        this._profileCpf       = cpf;
+        this._profilePhone     = phone;
+        this._profileBirthdate = birthdate;
+        state.userName         = name;
         this._updateAvatarUI(name);
+
+        // Limpa campos sensíveis após guardar
+        const newPassEl  = document.getElementById('profile-newpass-input');
+        const currPassEl = document.getElementById('profile-currentpass-input');
+        if (newPassEl)  newPassEl.value  = '';
+        if (currPassEl) currPassEl.value = '';
+
         ModalView.showToast('Perfil guardado com sucesso!');
         document.getElementById('profile-modal')?.classList.add('hidden');
     }

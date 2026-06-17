@@ -40,8 +40,9 @@ export const TransactionModel = {
         const ref = getActiveRef(uid, spaceId);
         const n   = Math.max(1, Math.floor(installments));
         const part = parseFloat((amount / n).toFixed(2));
-        const [baseYear, baseMonth] = dateKey.split('-').map(Number);
         const baseDate = date || new Date().toISOString().slice(0, 10);
+        // Com parcelas, ancora pela data informada (pode ser retroativa em relação ao mês activo)
+        const [baseYear, baseMonth] = (n > 1 ? baseDate : dateKey).split('-').map(Number);
         // Agrupa parcelas com um ID único para poder eliminar este e os futuros
         const installmentGroupId = n > 1
             ? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`

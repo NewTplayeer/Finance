@@ -2,6 +2,8 @@
  * ModalView — funções puras de UI para modais, toasts e indicadores de carregamento.
  * Não guarda estado próprio; opera directamente no DOM.
  */
+import { esc } from '../utils/sanitize.js';
+
 export const ModalView = {
     /**
      * Mostra um toast de notificação no canto inferior direito.
@@ -33,6 +35,7 @@ export const ModalView = {
     openConfirmModal({
         title        = "Confirmar",
         message,
+        htmlMessage,
         onConfirm,
         onCancel,
         confirmLabel = "Sim, eliminar",
@@ -46,8 +49,14 @@ export const ModalView = {
         if (!m || !btns) return;
 
         btns.innerHTML = '';
-        if (titleEl) titleEl.innerText  = title;
-        if (msgEl)   msgEl.innerHTML    = message;   // innerHTML permite HTML como inputs
+        if (titleEl) titleEl.innerText = title;
+        if (msgEl) {
+            if (htmlMessage !== undefined) {
+                msgEl.innerHTML = htmlMessage;
+            } else {
+                msgEl.innerText = message ?? '';
+            }
+        }
 
         const b1       = document.createElement('button');
         b1.innerText   = confirmLabel;
@@ -89,8 +98,8 @@ export const ModalView = {
             list.innerHTML = items.map((i) => `
                 <div class="flex items-center justify-between p-3 bg-slate-50 dark-card rounded-xl gap-3">
                     <div class="flex-1 min-w-0">
-                        <div class="font-semibold text-sm text-slate-800 truncate">${i.desc}</div>
-                        <div class="text-xs text-slate-400 mt-0.5">${i.category} · ${i.method}${i.bank ? ' · ' + i.bank : ''}</div>
+                        <div class="font-semibold text-sm text-slate-800 truncate">${esc(i.desc)}</div>
+                        <div class="text-xs text-slate-400 mt-0.5">${esc(i.category)} · ${esc(i.method)}${i.bank ? ' · ' + esc(i.bank) : ''}</div>
                     </div>
                     <div class="font-bold text-sm shrink-0 ${i.category === 'Receita' ? 'text-emerald-600' : 'text-slate-900'}">${fmt(i.amount)}</div>
                 </div>

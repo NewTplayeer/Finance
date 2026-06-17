@@ -516,8 +516,8 @@ export class TransactionController {
             form.reset();
 
             if (installments > 1) {
-                // Mostra em que meses as parcelas foram distribuídas
-                const [y, m] = dateKey.split('-').map(Number);
+                // Mostra em que meses as parcelas foram distribuídas (ancorado pela data informada)
+                const [y, m] = date.split('-').map(Number);
                 const meses = Array.from({ length: installments }, (_, i) => {
                     const d = new Date(y, m - 1 + i, 1);
                     return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
@@ -616,8 +616,8 @@ export class TransactionController {
             csvPreviewList.innerHTML = items.map(i => `
                 <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl gap-2">
                     <div class="flex-1 min-w-0">
-                        <div class="text-xs font-semibold text-slate-800 truncate">${i.desc}</div>
-                        <div class="text-[10px] text-slate-400">${i.date} · ${i.category}${i.bank ? ' · ' + i.bank : ''}</div>
+                        <div class="text-xs font-semibold text-slate-800 truncate">${this._esc(i.desc)}</div>
+                        <div class="text-[10px] text-slate-400">${this._esc(i.date)} · ${this._esc(i.category)}${i.bank ? ' · ' + this._esc(i.bank) : ''}</div>
                     </div>
                     <div class="text-xs font-bold text-slate-900 shrink-0">${fmt(i.amount)}</div>
                 </div>
@@ -1163,7 +1163,7 @@ export class TransactionController {
 
             dropdown.innerHTML = suggestions.map(d =>
                 `<button type="button" data-ac="${this._esc(d)}"
-                    class="w-full text-left px-4 py-2.5 hover:bg-indigo-50 text-sm text-slate-700 truncate transition">${d}</button>`
+                    class="w-full text-left px-4 py-2.5 hover:bg-indigo-50 text-sm text-slate-700 truncate transition">${this._esc(d)}</button>`
             ).join('');
             dropdown.classList.remove('hidden');
         });

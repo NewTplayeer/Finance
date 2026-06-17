@@ -2,6 +2,7 @@
  * ClientsView — renderização da tabela de clientes/fornecedores e do modal de edição.
  * Todas as funções são puras: recebem dados e actualizam o DOM.
  */
+import { esc } from '../utils/sanitize.js';
 
 /** Mapa de classes CSS para o badge de tipo de cliente */
 const TYPE_BADGE = {
@@ -45,15 +46,15 @@ export const ClientsView = {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50/50 transition-all';
             tr.innerHTML = `
-                <td class="px-6 py-5 font-bold text-slate-800">${c.name}</td>
+                <td class="px-6 py-5 font-bold text-slate-800">${esc(c.name)}</td>
                 <td class="px-6 py-5 font-mono text-sm text-slate-600">
-                    <span class="text-[10px] font-bold uppercase text-slate-400 mr-1">${c.docType}</span>${c.docFormatted || c.doc}
+                    <span class="text-[10px] font-bold uppercase text-slate-400 mr-1">${esc(c.docType)}</span>${esc(c.docFormatted || c.doc)}
                 </td>
                 <td class="px-6 py-5 text-center">
-                    <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${badge}">${c.type}</span>
+                    <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${badge}">${esc(c.type)}</span>
                 </td>
-                <td class="px-6 py-5 text-slate-500 text-sm">${c.email || '—'}</td>
-                <td class="px-6 py-5 text-slate-500 text-sm">${c.phone || '—'}</td>
+                <td class="px-6 py-5 text-slate-500 text-sm">${esc(c.email) || '—'}</td>
+                <td class="px-6 py-5 text-slate-500 text-sm">${esc(c.phone) || '—'}</td>
                 <td class="px-6 py-5 text-center">
                     <div class="flex items-center justify-center gap-3">
                         <button data-action="edit-client" data-id="${c.id}" class="text-slate-300 hover:text-indigo-500 transition-colors" title="Editar">

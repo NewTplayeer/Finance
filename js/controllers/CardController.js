@@ -50,11 +50,24 @@ export class CardController {
         this._scheduleNotificationCheck();
     }
 
-    /** Regista os listeners dos botões Adicionar e Activar Notificações */
+    /** Regista os listeners dos botões Adicionar, Activar Notificações e do modal de cartões */
     _bindUI() {
         document.getElementById('btn-add-card')?.addEventListener('click', () => this._addCard());
         document.getElementById('btn-enable-notifications')?.addEventListener('click', () => this.requestNotificationPermission());
+        document.getElementById('btn-open-cards-modal')?.addEventListener('click', () => this.openCardsModal());
+        document.getElementById('btn-close-cards-modal')?.addEventListener('click', () => this.closeCardsModal());
         this.syncNotificationBtn();
+    }
+
+    /** Abre o modal de gestão de cartões e actualiza a lista */
+    openCardsModal() {
+        this._renderCardsList();
+        document.getElementById('cards-modal')?.classList.remove('hidden');
+    }
+
+    /** Fecha o modal de gestão de cartões */
+    closeCardsModal() {
+        document.getElementById('cards-modal')?.classList.add('hidden');
     }
 
     /** Lê os campos do formulário e adiciona um novo cartão ao estado e ao Firestore */
@@ -104,7 +117,7 @@ export class CardController {
         if (uid) await CardModel.saveCards(uid, state.cards);
     }
 
-    /** Renderiza a lista de cartões no container #cards-list do modal de perfil */
+    /** Renderiza a lista de cartões no container #cards-list do modal de cartões */
     _renderCardsList() {
         const container = document.getElementById('cards-list');
         if (!container) return;

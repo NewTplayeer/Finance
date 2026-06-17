@@ -114,8 +114,8 @@ export class SavingsController {
         const label = action === 'deposit' ? 'Depositar' : 'Levantar';
         const amount = await new Promise(resolve => {
             ModalView.openConfirmModal({
-                title:        `${label} — ${name}`,
-                message:      `<input type="number" id="jar-amount-input" step="0.01" min="0.01"
+                title:        `${this._esc(label)} — ${this._esc(name)}`,
+                htmlMessage:  `<input type="number" id="jar-amount-input" step="0.01" min="0.01"
                     placeholder="Valor (R$)"
                     class="w-full mt-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">`,
                 confirmLabel: label,
@@ -145,7 +145,7 @@ export class SavingsController {
     _openEditModal(jar) {
         ModalView.openConfirmModal({
             title: 'Editar Cofrinho',
-            message: `
+            htmlMessage: `
                 <div class="space-y-3 mt-2">
                     <div class="flex gap-2">
                         <input type="text" id="jar-edit-emoji" value="${this._esc(jar.emoji || '🐷')}" maxlength="4"
@@ -202,9 +202,9 @@ export class SavingsController {
             <div class="bg-slate-50 rounded-2xl p-4 mb-3">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                        <span class="text-2xl">${jar.emoji || '🐷'}</span>
+                        <span class="text-2xl">${this._esc(jar.emoji || '🐷')}</span>
                         <div>
-                            <div class="text-sm font-bold text-slate-800">${jar.name}</div>
+                            <div class="text-sm font-bold text-slate-800">${this._esc(jar.name)}</div>
                             <div class="text-[11px] text-slate-400">
                                 ${fmt(jar.saved)}${jar.goal > 0 ? ` / ${fmt(jar.goal)}` : ''}
                             </div>

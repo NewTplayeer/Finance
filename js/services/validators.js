@@ -61,3 +61,35 @@ export const formatDoc = (digits, type) => {
     if (type === 'CPF') return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
     return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
 };
+
+/**
+ * Valida o formato de um endereço de e-mail.
+ * @param {string} email
+ * @returns {boolean}
+ */
+export const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+/**
+ * Valida um número de telefone (10 ou 11 dígitos, com ou sem formatação).
+ * @param {string} phone
+ * @returns {boolean}
+ */
+export const validatePhone = (phone) => {
+    const d = phone.replace(/\D/g, '');
+    return d.length === 10 || d.length === 11;
+};
+
+/**
+ * Valida uma data de nascimento (formato YYYY-MM-DD): não pode ser futura
+ * nem indicar uma idade superior a 120 anos.
+ * @param {string} dateStr
+ * @returns {boolean}
+ */
+export const validateBirthdate = (dateStr) => {
+    const date = new Date(`${dateStr}T00:00:00`);
+    if (isNaN(date.getTime())) return false;
+    const now = new Date();
+    if (date > now) return false;
+    const minDate = new Date(now.getFullYear() - 120, now.getMonth(), now.getDate());
+    return date >= minDate;
+};

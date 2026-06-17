@@ -68,7 +68,7 @@
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">CPF (opcional)</label>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">CPF *</label>
                             <input type="text" id="auth-cpf" maxlength="14" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" placeholder="000.000.000-00">
                         </div>
                         <div>
@@ -77,7 +77,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Data de Nascimento (opcional)</label>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Data de Nascimento *</label>
                         <input type="date" id="auth-birthdate" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
                     </div>
                 </div>
@@ -95,11 +95,11 @@
                     </label>
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">E-mail</label>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">E-mail *</label>
                     <input type="email" id="auth-email" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="exemplo@email.com">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Palavra-passe</label>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Palavra-passe *</label>
                     <input type="password" id="auth-password" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="••••••••">
                 </div>
                 <button id="auth-main-btn" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition shadow-xl shadow-indigo-200 active:scale-[0.98]">Entrar no Sistema</button>
@@ -224,7 +224,8 @@
                     <h3 class="text-emerald-500 text-[10px] font-bold uppercase tracking-widest mb-2">Receitas</h3>
                     <p id="total-income" class="text-xl font-bold text-emerald-600">R$ 0,00</p>
                 </div>
-                <div class="bg-white p-6 rounded-3xl border border-slate-200 card-shadow dark-card">
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 card-shadow dark-card relative">
+                    <button id="btn-open-cards-modal" title="Gerir cartões e datas de fatura" class="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition text-xs">⚙️</button>
                     <h3 class="text-rose-500 text-[10px] font-bold uppercase tracking-widest mb-2">Fatura Cartão</h3>
                     <p id="total-card" class="text-xl font-bold text-rose-700">R$ 0,00</p>
                 </div>
@@ -873,9 +874,40 @@
                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Nome de Exibição</label>
                         <input type="text" id="profile-name-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium" placeholder="O teu nome">
                     </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">CPF *</label>
+                            <input type="text" id="profile-cpf-input" maxlength="14" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" placeholder="000.000.000-00">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Telefone (opcional)</label>
+                            <input type="tel" id="profile-phone-input" maxlength="15" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" placeholder="(11) 99999-9999">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Data de Nascimento *</label>
+                        <input type="date" id="profile-birthdate-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
+                    </div>
                     <div>
                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">PIN de Bloqueio</label>
                         <input type="password" id="profile-pass-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold" placeholder="Vazio para desativar">
+                    </div>
+                </div>
+
+                <!-- Dados de acesso (e-mail / palavra-passe) -->
+                <div class="space-y-4 mb-6 border-t border-slate-100 pt-6">
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dados de Acesso</h4>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">E-mail *</label>
+                        <input type="email" id="profile-email-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" placeholder="exemplo@email.com">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Nova Palavra-passe (opcional)</label>
+                        <input type="password" id="profile-newpass-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" placeholder="Deixa vazio para não alterar">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Palavra-passe Atual</label>
+                        <input type="password" id="profile-currentpass-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" placeholder="Necessária para alterar e-mail/senha">
                     </div>
                 </div>
 
@@ -884,37 +916,6 @@
                     <button id="btn-open-cat-methods-from-profile" class="w-full py-3 bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition text-sm flex items-center justify-center gap-2">
                         <span>⚙️</span> Gerir Categorias &amp; Métodos de Pagamento
                     </button>
-                </div>
-
-                <!-- Faturas / Cartões -->
-                <div class="border-t border-slate-100 pt-6 mb-6">
-                    <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-4 tracking-[0.2em] flex items-center gap-2">
-                        💳 Faturas de Cartão
-                    </h4>
-                    <div id="cards-list" class="mb-4">
-                        <p class="text-xs text-slate-400 italic text-center py-2">Sem cartões cadastrados.</p>
-                    </div>
-                    <div class="grid grid-cols-3 gap-2 mb-3">
-                        <input type="text" id="card-bank-name" placeholder="Banco (Ex: Nubank)"
-                            class="col-span-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                        <div>
-                            <label class="text-[10px] text-slate-400 block mb-1">Dia Fechamento</label>
-                            <input type="number" id="card-closing-day" min="1" max="31" placeholder="Ex: 15"
-                                class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                        </div>
-                        <div>
-                            <label class="text-[10px] text-slate-400 block mb-1">Dia Vencimento</label>
-                            <input type="number" id="card-due-day" min="1" max="31" placeholder="Ex: 22"
-                                class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
-                        </div>
-                        <div class="flex items-end">
-                            <button id="btn-add-card" class="w-full py-3 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-slate-700 transition">Adicionar</button>
-                        </div>
-                    </div>
-                    <button id="btn-enable-notifications" class="w-full py-3 bg-indigo-50 text-indigo-600 font-bold rounded-2xl border border-indigo-200 hover:bg-indigo-100 transition text-xs">
-                        🔕 Activar Notificações de Faturas
-                    </button>
-                    <p class="text-[10px] text-slate-400 mt-2 text-center">Notificação no dia do fechamento e 1 dia antes do vencimento.</p>
                 </div>
 
                 <!-- Botões de acção -->
@@ -1322,7 +1323,47 @@
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=21"></script>
+    <!-- MODAL CARTÕES & FATURAS -->
+    <div id="cards-modal" class="fixed inset-0 z-[500] hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-white rounded-[2.5rem] max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="p-8">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">💳 Cartões &amp; Faturas</h3>
+                    <button id="btn-close-cards-modal" class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition font-bold">✕</button>
+                </div>
+                <p class="text-xs text-slate-400 mb-6">Configura o dia de fechamento e de vencimento de cada cartão para acompanhares as datas das faturas e receberes notificações.</p>
+
+                <div id="cards-list" class="mb-4">
+                    <p class="text-xs text-slate-400 italic text-center py-2">Sem cartões cadastrados.</p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <input type="text" id="card-bank-name" placeholder="Banco (Ex: Nubank)"
+                        class="col-span-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Dia Fechamento</label>
+                        <input type="number" id="card-closing-day" min="1" max="31" placeholder="Ex: 15"
+                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Dia Vencimento</label>
+                        <input type="number" id="card-due-day" min="1" max="31" placeholder="Ex: 22"
+                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300">
+                    </div>
+                    <div class="flex items-end">
+                        <button id="btn-add-card" class="w-full py-3 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-slate-700 transition">Adicionar</button>
+                    </div>
+                </div>
+
+                <button id="btn-enable-notifications" class="w-full py-3 bg-indigo-50 text-indigo-600 font-bold rounded-2xl border border-indigo-200 hover:bg-indigo-100 transition text-xs">
+                    🔕 Activar Notificações de Faturas
+                </button>
+                <p class="text-[10px] text-slate-400 mt-2 text-center">Notificação no dia do fechamento e 1 dia antes do vencimento.</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js?v=22"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const sections = [
