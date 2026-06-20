@@ -71,6 +71,9 @@ export class ClientsController {
         const result = validateDoc(rawDoc);
         if (!result.valid) return ModalView.showToast("CPF ou CNPJ inválido. Verifica o número.", 'error');
 
+        const dupDoc = state.clients.find(c => c.doc === result.digits && c.id !== state.editingClientId);
+        if (dupDoc) return ModalView.showToast(`Documento já cadastrado para: ${dupDoc.name}`, 'error');
+
         if (email) {
             const dupEmail = state.clients.find(c => c.email?.toLowerCase() === email.toLowerCase() && c.id !== state.editingClientId);
             if (dupEmail) return ModalView.showToast(`E-mail já cadastrado para: ${dupEmail.name}`, 'error');

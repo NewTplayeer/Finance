@@ -5,7 +5,7 @@
 import { db } from '../firebase.js';
 import { APP_ID } from '../config.js';
 import {
-    collection, doc, setDoc, getDocs
+    collection, doc, setDoc, getDocs, query, where
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /** Referência da coleção de registo de utilizadores */
@@ -57,5 +57,16 @@ export const AdminModel = {
     async getAllUsers() {
         const snap = await getDocs(registryRef());
         return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+
+    /**
+     * Verifica se já existe outro utilizador registado com o mesmo CPF.
+     * @param {string} cpf - no mesmo formato guardado no registo (com máscara)
+     * @returns {Promise<boolean>}
+     */
+    async isCpfTaken(cpf) {
+        if (!cpf) return false;
+        const snap = await getDocs(query(registryRef(), where('cpf', '==', cpf)));
+        return !snap.empty;
     }
 };

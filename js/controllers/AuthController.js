@@ -20,7 +20,8 @@ import {
     updateEmail,
     updatePassword,
     reauthenticateWithCredential,
-    EmailAuthProvider
+    EmailAuthProvider,
+    deleteUser
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { UserModel } from '../models/UserModel.js';
 import { AdminModel } from '../models/AdminModel.js';
@@ -269,6 +270,15 @@ export class AuthController {
                     } else {
                         const cred = await createUserWithEmailAndPassword(auth, email, password);
                         this._skipNextLoginLog = true;
+
+                        // O registo de CPF só pode ser consultado depois de autenticar (regras Firestore).
+                        // Se já existir outra conta com o mesmo CPF, anula esta conta recém-criada.
+                        if (await AdminModel.isCpfTaken(cpf)) {
+                            await deleteUser(cred.user);
+                            this._toggleFieldError('auth-cpf', false);
+                            return ModalView.showToast('Este CPF já está associado a outra conta.', 'error');
+                        }
+
                         await UserModel.savePrefs(cred.user.uid, {
                             userName: name,
                             appPassword: '',
@@ -293,7 +303,7 @@ export class AuthController {
                         'auth/invalid-credential'  : 'E-mail ou palavra-passe incorretos.',
                         'auth/user-not-found'       : 'Utilizador não encontrado.',
                         'auth/wrong-password'       : 'Palavra-passe incorreta.',
-                        'auth/email-already-in-use' : 'E-mail já registado. Tenta fazer login.',
+                        'auth/email-already-in-use' : 'CPF já registado. Tenta fazer login.',
                         'auth/weak-password'        : 'A senha precisa de pelo menos 6 caracteres.',
                         'auth/invalid-email'        : 'Endereço de e-mail inválido.',
                         'auth/too-many-requests'    : 'Muitas tentativas. Aguarda uns minutos.'
